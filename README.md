@@ -1,2 +1,2 @@
 # TP-BBDDA-Grupo06
-# Funciona perfecto!
+# Funciona perfecto y con interfaz gráfica!
