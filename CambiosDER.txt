@@ -3,3 +3,15 @@
 ⦁	Se saco la entidad norma AFIP ya que no era necesaria para este caso, la idea en un principio era dejar registradas las normas utilizadas en un historico, pero no era un requerimiento.
 
 ⦁	Se saco la entidad invitado, y se la reemplazo por una relacion unaria con el socio, ya que los invitados según los requerimientos deben ser socios.
+
+⦁	Se quito el booleano “Permite debito automatico” ya que se deberia permitir siempre
+
+⦁	Se movio la entidad Reserva para ser intermediaria entre socio y clase actividad, porque antes estaba conectado reserva con clase actividad y no era la relacion correcta.
+
+⦁	Se cambio el campo en clase actividad de “dia” a “fecha” para guardar un tipo de dato date, y que quede registrado a su vez dia,mes y anio.
+
+⦁	La entidad tutor, ahora se relaciona con el grupo familiar, ya que un tutor es responsable de un grupo familiar, antes existia redundancia de datos ya que ambos estaban vinculados a el socio directamente.
+
+⦁	Se sacaron atributos del socio Numero de obra social, Id grupo familiar. Ya que generaban redundancia de datos.
+
+⦁	Se cambio el campo Fecha en Tarifa actividad por fecha inicio y fecha fin.
