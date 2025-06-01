@@ -14,4 +14,4 @@
 
 ⦁	Se sacaron atributos del socio Numero de obra social, Id grupo familiar. Ya que generaban redundancia de datos.
 
-⦁	Se cambio el campo Fecha en Tarifa actividad por fecha inicio y fecha fin.
+⦁ Se acoplaron las entidades "Actividad deportiva" y "Tarifa actividad" porque no era necesario tenerlas desacopladas.
