@@ -14,4 +14,13 @@
 
 ⦁	Se sacaron atributos del socio Numero de obra social, Id grupo familiar. Ya que generaban redundancia de datos.
 
-⦁ Se acoplaron las entidades "Actividad deportiva" y "Tarifa actividad" porque no era necesario tenerlas desacopladas.
+⦁   Se acoplaron las entidades "Actividad deportiva" y "Tarifa actividad" porque no era necesario tenerlas desacopladas.
+
+⦁   Se eliminó el atributo "Tipo Cuota" ya que en este caso, no es necesaria esa distinción.
+
+⦁   Se creó una entidad devolución donde quedarán los pagos que necesitan devolverse, segun conrresponda, junto con sus estados
+
+⦁   Se quitó la entidad "Transaccion" ya que, no era necesario tenerla para este caso de estudio.
+    
+⦁   Se creó la entidad "morosidad", donde se generará un registro cada vez que se venza una cuota que aún no tenga un pago asociado.
+
