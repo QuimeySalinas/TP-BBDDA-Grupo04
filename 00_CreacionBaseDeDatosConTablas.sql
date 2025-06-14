@@ -136,3 +136,101 @@ CREATE TABLE app.ActividadDeportiva (
 	FechaVigencia DATE,
     Monto DECIMAL(10,2) not null check(Monto>0)
 );
+
+CREATE TABLE app.ClaseActividad (
+    IdClaseActividad INT IDENTITY(1,1) PRIMARY KEY,
+    Horario TIME,
+    Fecha DATE,
+    IdProfesor INT,
+    IdActividad INT,
+    IdActividadExtra INT,
+    IdClima INT,
+    FOREIGN KEY (IdActividad) REFERENCES app.ActividadDeportiva(IdActividad),
+    FOREIGN KEY (IdActividadExtra) REFERENCES app.ActividadExtra(IdActividadExtra),
+    FOREIGN KEY (IdClima) REFERENCES app.Clima(IdClima)
+);
+
+CREATE TABLE app.DictadaPor (
+    IdProfesor INT,
+    IdClaseActividad INT,
+    PRIMARY KEY (IdProfesor, IdClaseActividad),
+    FOREIGN KEY (IdProfesor) REFERENCES app.Profesor(IdProfesor),
+    FOREIGN KEY (IdClaseActividad) REFERENCES app.ClaseActividad(IdClaseActividad)
+);
+
+CREATE TABLE app.Reserva (
+    IdReserva INT IDENTITY(1,1) PRIMARY KEY,
+    Fecha DATE,
+    Hora TIME,
+    NumeroDeSocio CHAR(7),
+    IdClaseActividad INT,
+    FOREIGN KEY (NumeroDeSocio) REFERENCES app.Socio(NumeroDeSocio),
+    FOREIGN KEY (IdClaseActividad) REFERENCES app.ClaseActividad(IdClaseActividad)
+);
+
+CREATE TABLE app.Cuota (
+    IdCuota INT IDENTITY(1,1) PRIMARY KEY,
+    FechaEmision DATE,
+    MontoCuota DECIMAL(10,2) NOT NULL CHECK (MontoCuota > 0),
+    Recargo DECIMAL(10,2) NULL CHECK (Recargo IS NULL OR Recargo > 0),
+    MontoTotal DECIMAL(10,2) NOT NULL CHECK (MontoTotal > 0),
+    NumeroDeSocio CHAR(7),
+    FOREIGN KEY (NumeroDeSocio) REFERENCES app.Socio(NumeroDeSocio)
+);
+
+CREATE TABLE app.CuotaMorosa (
+    IdMorosidad INT IDENTITY(1,1) PRIMARY KEY,
+    Fecha DATE,
+    Estado CHAR(3) DEFAULT 'VEN' CHECK (Estado IN ('VEN','PAG')),
+    IdCuota INT,
+    FOREIGN KEY (IdCuota) REFERENCES app.Cuota(IdCuota)
+);
+
+
+CREATE TABLE app.MedioPago (
+    IdMedioPago INT IDENTITY(1,1) PRIMARY KEY,
+    Nombre VARCHAR(50),
+    Descripcion VARCHAR(100)
+);
+
+CREATE TABLE app.Factura (
+    IdFactura INT IDENTITY(1,1) PRIMARY KEY,
+    Tipo VARCHAR(20),
+    FechaFacturacion DATE,
+    PrimerVencimiento DATE,
+    SegundoVencimiento DATE,
+	Estado CHAR(3) CHECK (Estado IN ('PEN','PAG','VEN')), 
+    IdCuota INT,
+    IdActividadExtra INT,
+    FOREIGN KEY (IdCuota) REFERENCES app.Cuota(IdCuota),
+    FOREIGN KEY (IdActividadExtra) REFERENCES app.ActividadExtra(IdActividadExtra)
+);
+
+
+CREATE TABLE app.Pago (
+    IdPago INT IDENTITY(1,1) PRIMARY KEY,
+    FechaPago DATE,
+    Estado CHAR(3) DEFAULT 'IMP' CHECK (Estado IN ('IMP','ANU')), --IMP=IMPUTADO, ANU=ANULADO
+    IdFactura INT,
+    IdMedioPago INT,
+    FOREIGN KEY (IdFactura) REFERENCES app.Factura(IdFactura),
+    FOREIGN KEY (IdMedioPago) REFERENCES app.MedioPago(IdMedioPago)
+);
+
+CREATE TABLE app.Devolucion (
+    IdDevolucion INT IDENTITY(1,1) PRIMARY KEY,
+    MontoTotal DECIMAL(10,2) NOT NULL CHECK (MontoTotal < 0),
+    FechaDevolucion DATE,
+    Estado CHAR(3) DEFAULT 'PEN' CHECK (Estado IN ('PEN','DEV')), --PEN: PENDIENTE, DEV: DEVUELTO
+    IdPago INT,
+    FOREIGN KEY (IdPago) REFERENCES app.Pago(IdPago)
+);
+
+CREATE TABLE app.ItemFactura (
+    IdItemFactura INT IDENTITY(1,1) PRIMARY KEY,
+    Descripcion VARCHAR(100),
+    Cantidad INT,
+    PrecioUnitario DECIMAL(10,2),
+    IdFactura INT,
+    FOREIGN KEY (IdFactura) REFERENCES app.Factura(IdFactura)
+);
