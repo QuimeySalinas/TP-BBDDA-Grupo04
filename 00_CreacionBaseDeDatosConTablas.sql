@@ -10,6 +10,7 @@ GO
 USE Com2900G04;
 GO
 
+
 --Generamos esquemas necesarios para un futuro
 IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'ops')
 BEGIN
@@ -35,20 +36,25 @@ EXEC('CREATE SCHEMA app') --Esquema para los objetos relacionados directamente c
 END
 GO
 
+IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'org')
+BEGIN
+EXEC('CREATE SCHEMA org') --Esquema para los objetos relacionados con la organizacion.
+END
+GO
+
 --A continuacion, procederemos con la creacion de las tablas:
+CREATE TABLE app.DebitoAutomatico (
+	idDebitoAutomatico INT IDENTITY(1,1) PRIMARY KEY,
+	FechaVigencia DATE,
+	FechaFin DATE,
+	Tipo VARCHAR(20),
+	NumeroTarjeta INT
+);
 
 CREATE TABLE app.CategoriaSocio(
 	idCategoriaSocio INT IDENTITY(1,1) PRIMARY KEY,
 	nombre varchar(50)
-)
-
-CREATE TABLE app.CostoMembresia(
-	idCostoMembresia INT IDENTITY(1,1) PRIMARY KEY,
-	Monto DECIMAL(10,2) not null check(Monto>0),
-	fecha DATE,
-	idCategoriaSocio INT,
-	FOREIGN KEY(idCategoriaSocio) REFERENCES app.categoriaSocio(idCategoriaSocio)
-)
+);
 
 CREATE TABLE app.GrupoFamiliar (
     IdGrupoFamiliar INT IDENTITY(1,1) PRIMARY KEY,
@@ -58,24 +64,49 @@ CREATE TABLE app.GrupoFamiliar (
 	NumeroDeSocioResponsable CHAR(7)
 );
 
-CREATE TABLE app.Inscripcion(
-	IdInscripcion INT IDENTITY(1,1) PRIMARY KEY,
-	TipoInscripcion VARCHAR(20),
-	Fecha DATE,
-	Estado VARCHAR(20)
-);
-
 CREATE TABLE app.ObraSocial (
     IdObraSocial INT IDENTITY(1,1) PRIMARY KEY,
     Nombre VARCHAR(50),
-    Tipo VARCHAR(20)
+    FechaAlta DATE,
+    FechaBaja DATE
 );
 
+CREATE TABLE app.ActividadDeportiva (
+    IdActividad INT IDENTITY(1,1) PRIMARY KEY,
+    Nombre VARCHAR(50),
+    Monto DECIMAL(10,2) NOT NULL CHECK (Monto > 0),
+	FechaVigencia DATE
+);
+
+CREATE TABLE app.ActividadExtra (
+    IdActividadExtra INT IDENTITY(1,1) PRIMARY KEY,
+    Nombre VARCHAR(50),
+    Monto DECIMAL(10,2) NOT NULL CHECK (Monto > 0),
+	FechaVigencia DATE
+);
+
+CREATE TABLE app.Clima (
+	IdClima INT IDENTITY(1,1) PRIMARY KEY,
+    Tiempo DATETIME UNIQUE, --Dejamos el tiempo como UNIQUE para evitar dos climas distintos en un mismo momento
+    Temperatura DECIMAL(5,2),
+    VelocidadViento DECIMAL(5,2),
+    HumedadRelativa DECIMAL(5,2),
+    Lluvia DECIMAL(5,2)
+);
+
+CREATE TABLE app.Profesor (
+    IdProfesor INT IDENTITY(1,1) PRIMARY KEY,
+    Nombre VARCHAR(50),
+    Apellido VARCHAR(50),
+    Mail VARCHAR(100)
+);
+
+
 CREATE TABLE app.Socio (
-    NumeroDeSocio CHAR(7) primary key,
+    NumeroDeSocio CHAR(7) PRIMARY KEY,
     Documento VARCHAR(15) NOT NULL,
     Saldo DECIMAL(10,2),
-    Estado VARCHAR(20),
+    Estado VARCHAR(15) CHECK (Estado IN ('Activo','Inactivo')),
     Telefono VARCHAR(20),
     Nombre VARCHAR(50) NOT NULL,
     Apellido VARCHAR(50) NOT NULL,
@@ -86,62 +117,37 @@ CREATE TABLE app.Socio (
     IdCategoriaSocio INT,
     IdUsuario INT,
     IdGrupoFamiliar INT,
-	--IdGrupoFamiliarResp INT, --Si es responsable de un grupo familiar
     IdDescuento INT,
-	IdObraSocial INT,
+    IdObraSocial INT,
+    IdDebitoAutomatico INT,
     FOREIGN KEY (IdCategoriaSocio) REFERENCES app.CategoriaSocio(IdCategoriaSocio),
     FOREIGN KEY (IdGrupoFamiliar) REFERENCES app.GrupoFamiliar(IdGrupoFamiliar),
-	--FOREIGN KEY (IdGrupoFamiliarResp) REFERENCES app.GrupoFamiliar(IdGrupoFamiliar),
-	FOREIGN KEY (IdObraSocial) REFERENCES app.ObraSocial(IdObraSocial) 
+    FOREIGN KEY (IdObraSocial) REFERENCES app.ObraSocial(IdObraSocial),
+    FOREIGN KEY (IdDebitoAutomatico) REFERENCES app.DebitoAutomatico(IdDebitoAutomatico)
 );
 
 ALTER TABLE app.GrupoFamiliar
 ADD CONSTRAINT FK_GrupoFamiliarSocioResponsable
 FOREIGN KEY (NumeroDeSocioResponsable) REFERENCES app.Socio(NumeroDeSocio);
 
-CREATE TABLE app.Invita(
-	FechaInvitacion Date,
-    NumeroDeSocio  CHAR(7),
-	NumeroSocioInvitado  CHAR(7),
-	PRIMARY KEY(NumeroDeSocio,NumeroSocioInvitado,FechaInvitacion),
-	FOREIGN KEY(NumeroDeSocio) REFERENCES app.Socio(NumeroDeSocio),
-	FOREIGN KEY(NumeroSocioInvitado) REFERENCES app.Socio(NumeroDeSocio)
+CREATE TABLE app.CostoMembresia (
+    idCostoMembresia INT IDENTITY(1,1) PRIMARY KEY,
+    Monto DECIMAL(10,2) NOT NULL CHECK (Monto > 0),
+    fecha DATE,
+    idCategoriaSocio INT,
+    FOREIGN KEY (idCategoriaSocio) REFERENCES app.CategoriaSocio(idCategoriaSocio)
 );
 
-CREATE TABLE app.Usuario (
-    IdUsuario INT IDENTITY(1,1) PRIMARY KEY,
-    FechaVigenciaContrasena DATE,
-    Rol VARCHAR(20),
-    Usuario VARCHAR(50),
-    Contrasena VARCHAR(50),
-	NumeroDeSocio CHAR(7),
-	FOREIGN KEY (NumeroDeSocio) REFERENCES app.Socio(NumeroDeSocio)
-);
-
-
-
-CREATE TABLE app.Descuento (
-    IdDescuento INT IDENTITY(1,1) PRIMARY KEY,
-    Tipo VARCHAR(50),
-    Porcentaje DECIMAL(5,2),
-    FechaVigencia DATE,
-	NumeroDeSocio CHAR(7),
-	FOREIGN KEY (NumeroDeSocio) REFERENCES app.Socio(NumeroDeSocio)
-);
-
-CREATE TABLE app.ActividadDeportiva (
-    IdActividad INT IDENTITY(1,1) PRIMARY KEY,
-    ActividadExtra BIT, --Indica si es una actividad extra o no
-    Nombre VARCHAR(50), 
-	FechaVigencia DATE,
-    Monto DECIMAL(10,2) not null check(Monto>0)
+CREATE TABLE app.Inscripcion (
+    IdInscripcion INT IDENTITY(1,1) PRIMARY KEY,
+    TipoInscripcion VARCHAR(20),
+    Fecha DATE,
+    Estado VARCHAR(20)
 );
 
 CREATE TABLE app.ClaseActividad (
     IdClaseActividad INT IDENTITY(1,1) PRIMARY KEY,
-    Horario TIME,
-    Fecha DATE,
-    IdProfesor INT,
+    Fecha DATETIME,
     IdActividad INT,
     IdActividadExtra INT,
     IdClima INT,
@@ -160,8 +166,8 @@ CREATE TABLE app.DictadaPor (
 
 CREATE TABLE app.Reserva (
     IdReserva INT IDENTITY(1,1) PRIMARY KEY,
-    Fecha DATE,
-    Hora TIME,
+    Fecha DATETIME,
+	Asistio CHAR(1),
     NumeroDeSocio CHAR(7),
     IdClaseActividad INT,
     FOREIGN KEY (NumeroDeSocio) REFERENCES app.Socio(NumeroDeSocio),
@@ -233,4 +239,59 @@ CREATE TABLE app.ItemFactura (
     PrecioUnitario DECIMAL(10,2),
     IdFactura INT,
     FOREIGN KEY (IdFactura) REFERENCES app.Factura(IdFactura)
+);
+
+-- Finalmente, crear Usuario y Descuento con FKs hacia Socio
+
+CREATE TABLE app.Usuario (
+    IdUsuario INT IDENTITY(1,1) PRIMARY KEY,
+    FechaVigenciaContrasena DATE,
+    Rol VARCHAR(20),
+    Usuario VARCHAR(50),
+    Contrasena VARCHAR(100),
+	ContrasenaHash VARBINARY(32),
+    NumeroDeSocio CHAR(7),
+    FOREIGN KEY (NumeroDeSocio) REFERENCES app.Socio(NumeroDeSocio)
+);
+
+CREATE TABLE app.Descuento (
+    IdDescuento INT IDENTITY(1,1) PRIMARY KEY,
+    Tipo VARCHAR(50),
+    Porcentaje DECIMAL(5,2),
+    FechaVigencia DATE,
+    NumeroDeSocio CHAR(7),
+    FOREIGN KEY (NumeroDeSocio) REFERENCES app.Socio(NumeroDeSocio)
+);
+
+CREATE TABLE app.Invita (
+    FechaInvitacion DATE,
+    NumeroDeSocio CHAR(7),
+    NumeroDeSocioInvitado CHAR(7),
+    PRIMARY KEY (NumeroDeSocio,NumeroDeSocioInvitado, FechaInvitacion),
+    FOREIGN KEY (NumeroDeSocio) REFERENCES app.Socio(NumeroDeSocio),
+    FOREIGN KEY (NumeroDeSocioInvitado) REFERENCES app.Socio(NumeroDeSocio)
+);
+
+
+CREATE TABLE org.Area(
+	IdArea INT IDENTITY(1,1) PRIMARY KEY,
+	Nombre VARCHAR(50)
+);
+CREATE TABLE org.Puesto(
+	IdPuesto INT IDENTITY(1,1) PRIMARY KEY,
+	Nombre VARCHAR(50),
+	IdArea INT,
+	FOREIGN KEY(IdArea) REFERENCES org.Area(IdArea)
+);
+
+CREATE TABLE org.Empleado(
+	IdEmpleado INT IDENTITY(1,1) PRIMARY KEY,
+	Nombre VARCHAR(50),
+	Apellido VARCHAR(50),
+	Sueldo DECIMAL(10,2),
+	Email VARCHAR(100),
+	Documento VARCHAR(15),
+	Telefono VARCHAR(20),
+	IdPuesto INT,
+	FOREIGN KEY(IdPuesto) REFERENCES org.Puesto(IdPuesto)
 );
