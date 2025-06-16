@@ -207,9 +207,9 @@ CREATE TABLE app.Factura (
     SegundoVencimiento DATE,
 	Estado CHAR(3) CHECK (Estado IN ('PEN','PAG','VEN')), 
     IdCuota INT,
-    IdActividadExtra INT,
+    IdReserva INT,
     FOREIGN KEY (IdCuota) REFERENCES app.Cuota(IdCuota),
-    FOREIGN KEY (IdActividadExtra) REFERENCES app.ActividadExtra(IdActividadExtra)
+    FOREIGN KEY (IdReserva) REFERENCES app.Reserva(IdReserva)
 );
 
 
