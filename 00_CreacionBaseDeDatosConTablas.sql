@@ -151,23 +151,17 @@ CREATE TABLE app.ClaseActividad (
     IdActividad INT,
     IdActividadExtra INT,
     IdClima INT,
+	IdProfesor INT,
     FOREIGN KEY (IdActividad) REFERENCES app.ActividadDeportiva(IdActividad),
     FOREIGN KEY (IdActividadExtra) REFERENCES app.ActividadExtra(IdActividadExtra),
-    FOREIGN KEY (IdClima) REFERENCES app.Clima(IdClima)
-);
-
-CREATE TABLE app.DictadaPor (
-    IdProfesor INT,
-    IdClaseActividad INT,
-    PRIMARY KEY (IdProfesor, IdClaseActividad),
-    FOREIGN KEY (IdProfesor) REFERENCES app.Profesor(IdProfesor),
-    FOREIGN KEY (IdClaseActividad) REFERENCES app.ClaseActividad(IdClaseActividad)
+    FOREIGN KEY (IdClima) REFERENCES app.Clima(IdClima),
+	FOREIGN KEY (IdProfesor) REFERENCES app.Profesor(IdProfesor)
 );
 
 CREATE TABLE app.ReservaActividad (
     IdReserva INT IDENTITY(1,1) PRIMARY KEY,
     Fecha DATETIME,
-	Asistencia CHAR (1) CHECK (Asistencia IN ('P','A','J'));
+	Asistencia CHAR (1) CHECK (Asistencia IN ('P','A','J')),
     NumeroDeSocio CHAR(7),
     IdClaseActividad INT,
 	Monto DECIMAL(10,2)

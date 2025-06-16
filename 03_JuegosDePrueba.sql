@@ -12,12 +12,16 @@ Es importanto, ir ejecutando este archivo paso a paso, en el orden en el que fue
 EXEC imp.ImportarResponsablesDePago 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\ArchivosImportacion\Datos socios.xlsx'
 --Verificamos si se ingresaron datos en los socios
 SELECT COUNT(*) [Numero de filas] FROM app.Socio WHERE IdGrupoFamiliar IS NULL
+--Tambien podemos corroborar si se crearon los usuarios y se hashearon las contrasenas
+SELECT * FROM app.Usuario
 
 --Continuamos con los grupos familiares
 EXEC imp.ImportarGruposFamiliares 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\ArchivosImportacion\Datos socios.xlsx'
 --Verificamos si se ingresaron datos en los grupos familiares y los nuevos socios 
 SELECT * FROM app.GrupoFamiliar
 SELECT NumeroDeSocio, IdGrupoFamiliar FROM app.Socio WHERE IdGrupoFamiliar IS NOT NULL
+--Tambien podemos corroborar si se crearon los usuarios y se hashearon las contrasenas
+SELECT * FROM app.Usuario
 
 --Ahora, importamos las tarifas
 EXEC imp.ImportarTarifas 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\ArchivosImportacion\Datos socios.xlsx'
