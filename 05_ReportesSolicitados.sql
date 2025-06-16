@@ -9,7 +9,7 @@ CREATE OR ALTER PROCEDURE rep.MorososRecurrentes
     @FechaFin DATE
 AS
 BEGIN
-    -- Validaci�n de fechas
+    -- Validaci�n de fechas
     IF @FechaFin <= @FechaInicio
     BEGIN
         PRINT 'Error: La fecha de fin debe ser mayor que la de inicio.';
@@ -68,7 +68,7 @@ BEGIN
 		FROM app.Reserva r
 		INNER JOIN app.ClaseActividad c ON r.IdClaseActividad = c.IdClaseActividad
 		INNER JOIN app.ActividadDeportiva a ON c.IdActividad = a.IdActividad
-		WHERE DATEPART(year, r.Fecha) = DATEPART(year, GETDATE()) -- Solo el a�o actual
+		WHERE DATEPART(year, r.Fecha) = DATEPART(year, GETDATE()) -- Solo el a�o actual
 		GROUP BY DATEPART(mm, r.Fecha), a.Nombre, a.Monto,a.IdActividad
 	),
 	IngresosAcumulados AS (
@@ -94,30 +94,89 @@ BEGIN
 END
 
 
---REPORTE 3
-
-
---REPORTE 4
---socios que no han asistido a alguna clase de la actividad que realizan
-GO
-CREATE OR ALTER PROCEDURE rep.InasistenciasAClases 
+--REPORTE 3:Reporte de la cantidad de socios que han realizado alguna actividad de forma alternada 
+--(inasistencias) por categoría de socios y actividad, ordenado según cantidad de inasistencias 
+--ordenadas de mayor a menor.
+CREATE PROCEDURE rep.CantidadInasistencias
 AS
 BEGIN
 	SET NOCOUNT ON;
 
-	SELECT
-    s.Nombre,
-    s.Apellido,
-    DATEDIFF(YEAR, s.FechaNacimiento, GETDATE()) Edad,
-    cs.nombre Categoria,
-    ad.Nombre Actividad
-	FROM app.Socio s
-	JOIN app.CategoriaSocio cs ON s.IdCategoriaSocio = cs.idCategoriaSocio
-	JOIN app.Reserva r ON r.NumeroDeSocio = s.NumeroDeSocio
-	JOIN app.ClaseActividad ca ON r.IdClaseActividad = ca.IdClaseActividad
-	JOIN app.ActividadDeportiva ad ON ca.IdActividad = ad.IdActividad
-	WHERE r.Asistio = 0
-	GROUP BY s.Nombre, s.Apellido, s.FechaNacimiento, cs.nombre, ad.Nombre;
+		SELECT 
+			CS.Nombre, 
+			AD.Nombre,
+			COUNT(*) AS CantInasistencias
+		FROM 
+			app.Reserva R
+		INNER JOIN 
+			app.Socio S ON R.NumeroDeSocio = S.NumeroDeSocio
+		INNER JOIN 
+			app.CategoriaSocio CS ON S.IdCategoriaSocio = CS.IdCategoriaSocio
+		INNER JOIN 
+			app.ClaseActividad CA ON R.IdclaseActividad = CA.IdclaseActividad
+		INNER JOIN 
+			app.ActividadDeportiva AD ON CA.IdActividad = AD.IdActividad
+		WHERE 
+			Asistencia IN ('A','J')--Que solo devuelva las A: Ausente y J: Ausente Justificado.
+		GROUP BY 
+			CS.Nombre, AD.Nombre
+		ORDER BY 
+			CantInasistencias DESC
+
+END
+
+--REPORTE 4: Reporte que contenga a los socios que no han asistido a alguna clase de la actividad que 
+--realizan. El reporte debe contener: Nombre, Apellido, edad, categoría y la actividad 
+
+CREATE PROCEDURE rep.InasistenciasAClasesPorSocio
+AS
+BEGIN
+	SET NOCOUNT ON;
+
+		WITH SociosConReservas AS (
+		SELECT 
+			R.NumeroDeSocio,
+			CA.IdActividad
+		FROM 
+			app.Reserva R
+		INNER JOIN 
+			app.ClaseActividad CA ON R.IdClaseActividad = CA.IdClaseActividad
+		GROUP BY 
+			R.NumeroDeSocio, CA.IdActividad
+	),--Devuelve las reservas generadas por los socios, sin discriminar aún por presentismo.
+	SociosConPresente AS (
+		SELECT 
+			R.NumeroDeSocio,
+			CA.IdActividad
+		FROM 
+			app.Reserva R
+		INNER JOIN 
+			app.ClaseActividad CA ON R.IdClaseActividad = CA.IdClaseActividad
+		WHERE 
+			R.Asistencia = 'P'
+		GROUP BY 
+			R.NumeroDeSocio, CA.IdActividad
+	)--Devuelve las reservas que terminaron con los socios presentes
+	SELECT 
+		S.Nombre,
+		S.Apellido,
+		DATEDIFF(YEAR, S.FechaNacimiento, GETDATE()) AS Edad,
+		CS.Nombre AS Categoria,
+		AD.Nombre AS Actividad
+	FROM 
+		SociosConReservas SCR
+	LEFT JOIN 
+		SociosConPresente SP ON SCR.NumeroDeSocio = SP.NumeroDeSocio AND SCR.IdActividad = SP.IdActividad
+	INNER JOIN 
+		app.Socio S ON S.NumeroDeSocio = SCR.NumeroDeSocio
+	INNER JOIN 
+		app.CategoriaSocio CS ON S.IdCategoriaSocio = CS.IdCategoriaSocio
+	INNER JOIN 
+		app.ActividadDeportiva AD ON SCR.IdActividad = AD.IdActividad
+	WHERE 
+		SP.NumeroDeSocio IS NULL --Si el socio es NULL es porque no encontró coincidencias, por ende, significa que no asistió a ninguna de esas clases
+	ORDER BY 
+		AD.Nombre, S.Apellido, S.Nombre;
 
 END
 
