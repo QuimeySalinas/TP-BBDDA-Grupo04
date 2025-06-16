@@ -164,21 +164,16 @@ CREATE TABLE app.DictadaPor (
     FOREIGN KEY (IdClaseActividad) REFERENCES app.ClaseActividad(IdClaseActividad)
 );
 
-CREATE TABLE app.Reserva (
+CREATE TABLE app.ReservaActividad (
     IdReserva INT IDENTITY(1,1) PRIMARY KEY,
     Fecha DATETIME,
 	Asistencia CHAR (1) CHECK (Asistencia IN ('P','A','J'));
     NumeroDeSocio CHAR(7),
     IdClaseActividad INT,
+	Monto DECIMAL(10,2)
     FOREIGN KEY (NumeroDeSocio) REFERENCES app.Socio(NumeroDeSocio),
     FOREIGN KEY (IdClaseActividad) REFERENCES app.ClaseActividad(IdClaseActividad)
 );
-
-ALTER TABLE app.Reserva
-ADD Monto DECIMAL(10,2);
-
-EXEC sp_rename 'app.Reserva', 'ReservaActividad';
-
 
 CREATE TABLE app.Cuota (
     IdCuota INT IDENTITY(1,1) PRIMARY KEY,
@@ -215,7 +210,7 @@ CREATE TABLE app.Factura (
     IdCuota INT,
     IdReserva INT,
     FOREIGN KEY (IdCuota) REFERENCES app.Cuota(IdCuota),
-    FOREIGN KEY (IdReserva) REFERENCES app.Reserva(IdReserva)
+    FOREIGN KEY (IdReserva) REFERENCES app.ReservaActividad(IdReserva)
 );
 
 

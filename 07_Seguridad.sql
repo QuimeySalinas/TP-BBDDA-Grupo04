@@ -103,19 +103,5 @@ END;
 
 ---Fin de encriptacion de datos de los empleados
 
---Adicional, agregamos un trigger parecido al anterior en el cual convertimos en hash las contrasenas de los usuarios:
-GO
-CREATE OR ALTER TRIGGER app.HashContrasena
-ON app.Usuario
-AFTER INSERT
-AS
-BEGIN
-    SET NOCOUNT ON;
-    UPDATE u
-    SET 
-        u.ContrasenaHash = HASHBYTES('SHA2_256', CONVERT(NVARCHAR(100), i.Contrasena)),
-        u.Contrasena = NULL
-    FROM app.Usuario u
-    INNER JOIN inserted i ON u.IdUsuario = i.IdUsuario;
-END;
+
 

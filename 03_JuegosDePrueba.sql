@@ -1,0 +1,152 @@
+USE Com2900G04;
+GO
+/*Este archivo esta pensado para ser ejecutado por partes e ir visualizando los datos insertados en las tablas.
+Recomendamos, generar una carpeta dentro de C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL
+que se llame ArchivosImportacion y alli dentro pegar los archivos que se deben importar, cambiar la ruta en caso 
+de hacer falta.
+Es importanto, ir ejecutando este archivo paso a paso, en el orden en el que fue predispuesto.
+*/
+
+
+--Continuamos con los responsables de pago:
+EXEC imp.ImportarResponsablesDePago 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\ArchivosImportacion\Datos socios.xlsx'
+--Verificamos si se ingresaron datos en los socios
+SELECT COUNT(*) [Numero de filas] FROM app.Socio WHERE IdGrupoFamiliar IS NULL
+
+--Continuamos con los grupos familiares
+EXEC imp.ImportarGruposFamiliares 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\ArchivosImportacion\Datos socios.xlsx'
+--Verificamos si se ingresaron datos en los grupos familiares y los nuevos socios 
+SELECT * FROM app.GrupoFamiliar
+SELECT NumeroDeSocio, IdGrupoFamiliar FROM app.Socio WHERE IdGrupoFamiliar IS NOT NULL
+
+--Ahora, importamos las tarifas
+EXEC imp.ImportarTarifas 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\ArchivosImportacion\Datos socios.xlsx'
+--
+SELECT * FROM app.CategoriaSocio 
+SELECT * FROM app.CostoMembresia
+SELECT * FROM app.ActividadDeportiva
+
+--Importamos los pagos realizados por los socios
+--Pero antes.. hay que generar cuotas
+INSERT INTO app.MedioPago (Nombre, Descripcion) VALUES
+	('Visa','Pago con tarjeta'),
+	('MasterCard','Pago con tarjeta'),
+	('Tarjeta Naranja','Pago con tarjeta'),
+	('Pago Fácil','Pago en efectivo'),
+	('Efectivo','Pago en efectivo'),
+	('MercadoPago','Transferencia');
+
+--Importar datos de cuotas: (Este procedimiento es para pruebas, lo ideal es que las cuotas ya esten previamente cargadas)
+    -- Cargar datos del Excel en tabla temporal
+    SELECT [fecha], [valor], [Responsable de pago] COLLATE Latin1_General_CI_AI AS NumeroDeSocio
+	INTO #CuotasExcel
+	FROM OPENROWSET('Microsoft.ACE.OLEDB.12.0',
+	'Excel 12.0 Xml;HDR=YES;Database=C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\ArchivosImportacion\Datos socios.xlsx;',
+	'SELECT * FROM [pago cuotas$]');
+
+    -- Insertamos las cuotas segun los pagos ingresados.
+    INSERT INTO app.Cuota (FechaEmision, MontoCuota, Recargo, MontoTotal, NumeroDeSocio)
+    SELECT 
+        CONVERT(DATE, [fecha]) AS FechaEmision,
+        [valor] AS MontoCuota,
+        ([valor] * 0.1) AS Recargo, 
+        [valor] AS MontoTotal,
+		CE.NumeroDeSocio
+    FROM #CuotasExcel CE
+    WHERE CE.NumeroDeSocio IN (SELECT NumeroDeSocio FROM app.Socio)
+    ;
+
+    DROP TABLE #CuotasExcel;
+
+SELECT * FROM app.Cuota
+select * from app.Factura
+select * from app.ItemFactura
+--Ahora si, importamos los pagos
+EXEC imp.ImportarPagosDesdeExcel 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\ArchivosImportacion\Datos socios.xlsx'
+SELECT * FROM app.Pago
+
+/*
+Importamos los presentismos de los socios, previamente hay que tener datos precargados, por ende
+Ejecutaremos lo siguiente a modo de prueba para completar las tablas de reserva, clase actividad y profesor
+	Creamos una tabla temporal para guardar la tabla del excel
+*/	
+	SELECT 
+		[Profesor] COLLATE Latin1_General_CI_AI AS Nombre, 
+		[Actividad] COLLATE Latin1_General_CI_AI AS Act, 
+		[fecha de asistencia] AS fecha,  
+		[Asistencia] COLLATE Latin1_General_CI_AI AS Asis, 
+		[Nro de Socio] COLLATE Latin1_General_CI_AI AS IdSocio
+	INTO #PresentismoExcel
+	FROM OPENROWSET(
+		'Microsoft.ACE.OLEDB.12.0',
+		'Excel 12.0 Xml;HDR=YES;Database=C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\ArchivosImportacion\Datos socios.xlsx;',
+		'SELECT * FROM [presentismo_actividades$]'
+	);
+	--Insertamos los profesores si no existen
+	INSERT INTO app.Profesor (Nombre)
+	SELECT DISTINCT t.Nombre
+	FROM #PresentismoExcel t
+	WHERE NOT EXISTS(
+		SELECT 1 FROM app.Profesor p WHERE p.Nombre = t.Nombre
+	)
+	-- Insertamos en ClaseActividad
+	INSERT INTO app.ClaseActividad (Fecha, IdProfesor, IdActividad)
+	SELECT 
+		CONVERT(DATETIME, PE.Fecha) AS Fecha,
+		P.IdProfesor,
+		AD.IdActividad
+	FROM #PresentismoExcel PE 
+	INNER JOIN app.Profesor P 
+		ON P.Nombre COLLATE Latin1_General_CI_AI = PE.Nombre COLLATE Latin1_General_CI_AI
+	INNER JOIN app.ActividadDeportiva AD 
+		ON PE.Act COLLATE Latin1_General_CI_AI = AD.Nombre COLLATE Latin1_General_CI_AI
+	GROUP BY PE.Fecha, P.IdProfesor, AD.IdActividad;
+	-- Insertamos los registros en Reserva
+	INSERT INTO app.ReservaActividad (Fecha, NumeroDeSocio, IdClaseActividad, Asistencia)
+	SELECT 
+		PE.Fecha,
+		PE.IdSocio COLLATE Latin1_General_CI_AI, 
+		IdClaseActividad,
+		NULL
+	FROM #PresentismoExcel PE
+	INNER JOIN app.Profesor P 
+		ON PE.Nombre COLLATE Latin1_General_CI_AI = P.Nombre COLLATE Latin1_General_CI_AI
+	INNER JOIN app.ClaseActividad CA 
+		ON P.IdProfesor = CA.IdProfesor 
+		AND PE.Fecha = CA.Fecha
+	INNER JOIN app.ActividadDeportiva AD 
+		ON CA.IdActividad = AD.IdActividad
+	WHERE AD.Nombre COLLATE Latin1_General_CI_AI = PE.Act COLLATE Latin1_General_CI_AI
+	AND PE.IdSocio COLLATE Latin1_General_CI_AI IN (SELECT NumeroDeSocio FROM app.Socio)
+	AND PE.Asis COLLATE Latin1_General_CI_AI IN ('P','A','J');
+
+	-- Eliminamos la tabla temporal
+	DROP TABLE #PresentismoExcel;
+
+SELECT * FROM app.Profesor
+SELECT * FROM app.ClaseActividad
+SELECT * FROM app.ReservaActividad
+--Ahora si, importamos los presentismos:
+EXEC imp.ImportarPresentismoClases 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\ArchivosImportacion\Datos socios.xlsx'
+SELECT * FROM app.ReservaActividad
+
+--Ahora importamos los climas:
+--Pero antes, agregamos un registro en Clase Actividad en el que coincidan las fechas de los csv para
+--comprobar que se actualizan los climas en esa tabla correctamente.
+INSERT INTO app.ClaseActividad (Fecha, IdActividad, IdProfesor)
+SELECT 
+    '2025-03-01',  -- Fecha fija
+    IdActividad, 
+    (SELECT TOP 1 IdProfesor FROM app.Profesor)  -- cualquier profesor 
+FROM app.ActividadDeportiva
+WHERE Nombre = 'Futsal' OR Nombre = 'Natacion'; --Insertamos dos registros en total
+
+--Con esta consulta podemos ver las clases que coinciden en fecha y hora con nuestros datos en Clima
+SELECT * FROM app.ClaseActividad ca
+INNER JOIN app.Clima c ON ca.Fecha = c.Tiempo
+--Ahora si, importamos los climas:
+EXEC imp.ImportacionClimas 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\ArchivosImportacion\open-meteo-buenosaires_2024.csv'
+EXEC imp.ImportacionClimas 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\ArchivosImportacion\open-meteo-buenosaires_2025.csv'
+--Verificamos la correcta insersion de datos:
+SELECT * FROM app.Clima
+SELECT * FROM app.ClaseActividad WHERE IdClima IS NOT NULL --Se actualizan los datos que coinciden en la fecha
