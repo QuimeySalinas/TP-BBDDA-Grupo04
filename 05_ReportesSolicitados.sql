@@ -65,7 +65,7 @@ BEGIN
 			a.IdActividad,
 			COUNT(*) CantidadReservas,
 			COUNT(*) * a.Monto IngresoMensual
-		FROM app.Reserva r
+		FROM app.ReservaActividad r
 		INNER JOIN app.ClaseActividad c ON r.IdClaseActividad = c.IdClaseActividad
 		INNER JOIN app.ActividadDeportiva a ON c.IdActividad = a.IdActividad
 		WHERE DATEPART(year, r.Fecha) = DATEPART(year, GETDATE()) -- Solo el a�o actual
@@ -107,7 +107,7 @@ BEGIN
 			AD.Nombre,
 			COUNT(*) AS CantInasistencias
 		FROM 
-			app.Reserva R
+			app.ReservaActividad R
 		INNER JOIN 
 			app.Socio S ON R.NumeroDeSocio = S.NumeroDeSocio
 		INNER JOIN 
@@ -138,7 +138,7 @@ BEGIN
 			R.NumeroDeSocio,
 			CA.IdActividad
 		FROM 
-			app.Reserva R
+			app.ReservaActividad R
 		INNER JOIN 
 			app.ClaseActividad CA ON R.IdClaseActividad = CA.IdClaseActividad
 		GROUP BY 
@@ -149,7 +149,7 @@ BEGIN
 			R.NumeroDeSocio,
 			CA.IdActividad
 		FROM 
-			app.Reserva R
+			app.ReservaActividad R
 		INNER JOIN 
 			app.ClaseActividad CA ON R.IdClaseActividad = CA.IdClaseActividad
 		WHERE 
