@@ -167,12 +167,18 @@ CREATE TABLE app.DictadaPor (
 CREATE TABLE app.Reserva (
     IdReserva INT IDENTITY(1,1) PRIMARY KEY,
     Fecha DATETIME,
-	Asistio CHAR(1),
+	Asistencia CHAR (1) CHECK (Asistencia IN ('P','A','J'));
     NumeroDeSocio CHAR(7),
     IdClaseActividad INT,
     FOREIGN KEY (NumeroDeSocio) REFERENCES app.Socio(NumeroDeSocio),
     FOREIGN KEY (IdClaseActividad) REFERENCES app.ClaseActividad(IdClaseActividad)
 );
+
+ALTER TABLE app.Reserva
+ADD Monto DECIMAL(10,2);
+
+EXEC sp_rename 'app.Reserva', 'ReservaActividad';
+
 
 CREATE TABLE app.Cuota (
     IdCuota INT IDENTITY(1,1) PRIMARY KEY,
