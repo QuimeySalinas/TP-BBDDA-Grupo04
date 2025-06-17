@@ -28,10 +28,149 @@ BEGIN
 	--Asignaremos una contrasena default (para cada socio) para que se ingrese en primera instancia con esa
 	INSERT INTO app.Usuario (FechaVigenciaContrasena, Rol, Usuario, Contrasena, NumeroDeSocio)
 	SELECT 
-		DATEADD(WEEK, 1, GETDATE()),  -- Una semana despu�s de la creaci�n
+		DATEADD(WEEK, 1, GETDATE()),  -- Una semana despu�s de la creaci�n
 		'Socio', 
 		i.Nombre, 
 		CONCAT(i.NumeroDeSocio, i.Documento), 
 		i.NumeroDeSocio
 	FROM inserted i;
 END
+
+--Se crea un trigger que generará una factura cada vez que se genere una cuota
+CREATE TRIGGER trg_GenerarFacturaPorCuota
+ON app.Cuota
+AFTER INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO app.Factura (Tipo, FechaFacturacion, PrimerVencimiento, SegundoVencimiento, Estado, idCuota)
+    SELECT 
+		'Factura',
+        i.FechaEmision,
+        DATEADD(DAY, 5, i.FechaEmision) AS PrimerVto,
+        DATEADD(DAY, 10, i.FechaEmision) AS SegundoVto,
+		'PEN',
+		i.idCuota
+    FROM inserted i;
+END;
+
+--Creamos un trigger que va a cargar la tabla ItemFactura cada vez que se genera una factura.
+CREATE TRIGGER CargaItemFactura
+ON app.Factura
+AFTER INSERT
+AS
+BEGIN
+	SET NOCOUNT ON;
+		--Inserta si es una factura creada por una reserva de actividad
+		INSERT INTO app.ItemFactura(Descripcion, Cantidad, PrecioUnitario,IdFactura)
+		SELECT 
+			'Reserva actividad',
+			1,
+			a.Monto,
+			i.IdFactura
+		FROM inserted i 
+		INNER JOIN app.ReservaActividad a ON i.IdReserva = a.IdReserva
+		WHERE i.idCuota IS NULL;
+		
+		--Inserta si es una factura creada por una cuota.
+		INSERT INTO app.ItemFactura(Descripcion, Cantidad, PrecioUnitario,IdFactura)
+		SELECT 
+			'Cuota',
+			1,
+			a.MontoTotal,
+			i.IdFactura
+		FROM inserted i 
+		INNER JOIN app.Cuota a ON i.IdCuota = a.IdCuota
+		WHERE i.idCuota IS NOT NULL;
+
+		--Inserta si es una Nota de crédito generada por una devolución.
+		INSERT INTO app.ItemFactura(Descripcion, Cantidad, PrecioUnitario,IdFactura)
+		SELECT 
+			'Cuota',
+			1,
+			D.MontoTotal,
+			i.IdFactura
+		FROM inserted i 
+		INNER JOIN app.Pago P ON i.IdFactura = P.IdFactura
+		INNER JOIN app.Devolucion D ON P.IdPago = D.IdPago
+		WHERE i.Tipo = 'Nota de credito';
+END
+
+--Trigger que genera una cuota cada vez que haya una inscripcion de un nuevo socio.
+CREATE TRIGGER trg_PrimerCuota
+ON app.Socio
+AFTER INSERT
+AS
+BEGIN
+	SET NOCOUNT ON;
+
+	INSERT INTO app.Cuota (FechaEmision, MontoCuota, Recargo, MontoTotal, NumeroDeSocio)
+	SELECT
+	GETDATE(),
+	(CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) AS MontoCuota, --Se define el valor de la cuota
+	(CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) * 0.1 AS MontoRecargo, --Se carga el campo recargo
+	(CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) AS MontoTotal, --Inicialmente, el valor de la cuota total sera igual que el valor de la cuota
+	i.NumeroDeSocio
+	FROM inserted i
+	INNER JOIN app.CategoriaSocio CS ON i.IdCategoriaSocio = CS.IdCategoriaSocio
+	INNER JOIN app.CostoMembresia CM ON CS.iDCategoriaSocio = CM.iDCategoriaSocio
+	LEFT JOIN app.Descuento D ON i.NumeroDeSocio = D.NumeroDeSocio AND D.FechaVigencia <= GETDATE()
+END;
+
+--SP Que genera las cuotas siempre que el socio cumpla un mes mas
+CREATE PROCEDURE GenerarCuota
+AS
+BEGIN
+	SET NOCOUNT ON;
+	INSERT INTO app.Cuota (FechaEmision, MontoCuota, Recargo, MontoTotal, NumeroDeSocio)
+		SELECT 
+			GETDATE() AS FechaEmision,
+			(CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0) + S.Saldo AS MontoCuota, --Se aplica el descuento si corresponde solo a la membresía. Ademas, se descuenta el monto de pago a cuenta. Por otro lado, tambien se suman las actividades
+			((CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0) + S.Saldo) * 0.1 AS Recargo,
+			(CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0 + S.Saldo) AS MontoTotal,
+			S.NumeroDeSocio
+		FROM app.Socio S 
+		INNER JOIN app.CategoriaSocio CS ON S.IdCategoriaSocio = CS.IdCategoriaSocio
+		INNER JOIN app.CostoMembresia CM ON CS.IdCategoriaSocio = CM.IdCategoriaSocio
+		LEFT JOIN app.Descuento D ON S.NumeroDeSocio = D.NumeroDeSocio AND D.FechaVigencia <= GETDATE()
+		LEFT JOIN (
+		-- Subconsulta que trae la suma de actividades distintas por socio. Ejemplo, actividad 1 tiene x reservas, la actividad vale x entonces lo trae. Otra actividad 2 tiene x reservas, esa actividad vale y y suma y+x
+		SELECT 
+			RA.NumeroDeSocio, 
+			SUM(DISTINCT AD.Monto) AS MontoActividades
+		FROM app.ReservaActividad RA
+		INNER JOIN app.ClaseActividad CA ON RA.IdClaseActividad = CA.IdClaseActividad
+		INNER JOIN app.ActividadDeportiva AD ON CA.IdActividad = AD.IdActividad
+		WHERE RA.Fecha > DATEADD(DAY, -30, GETDATE())
+		GROUP BY RA.NumeroDeSocio
+	) AD ON S.NumeroDeSocio = AD.NumeroDeSocio
+	WHERE S.Estado = 'Activo'
+	AND S.NumeroDeSocio NOT IN (
+		SELECT NumeroDeSocio 
+		FROM app.Cuota 
+		WHERE FechaEmision > DATEADD(DAY, -30, GETDATE())
+	) 
+	AND (CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0) > ABS(S.Saldo)
+
+END;
+
+--SP que se ejecuta post ejecución del SP GenerarCuota que da por pagas las facturas de clientes adheridos al débito automático:
+CREATE PROCEDURE PagoDebitoAutomatico
+AS
+BEGIN
+	SET NOCOUNT ON;
+	INSERT INTO app.Pago(FechaPago, Estado, IdFactura, IdMedioPago)
+	SELECT
+		GETDATE(),
+		'IMPU',
+		F.IdFactura,
+		DA.Tipo
+	FROM app.DebitoAutomatico DA 
+	INNER JOIN app.Socio S ON DA.IdDebitoAutomatico = S.IdDebitoAutomatico
+	INNER JOIN app.Cuota C ON S.NumeroDeSocio = C.NumeroDeSocio
+	INNER JOIN app.Factura F ON C.IdCuota = F.IdCuota
+	WHERE F.Estado = 'PEN';
+	
+END;
+
