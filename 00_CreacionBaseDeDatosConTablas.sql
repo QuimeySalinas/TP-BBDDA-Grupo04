@@ -290,3 +290,12 @@ CREATE TABLE org.Empleado(
 	IdPuesto INT,
 	FOREIGN KEY(IdPuesto) REFERENCES org.Puesto(IdPuesto)
 );
+
+CREATE TABLE app.Reintegro(
+	IdReintegro INT IDENTITY(1,1) PRIMARY KEY,
+	Estado CHAR (3) CHECK (Estado IN ('PEN','FIN')),
+	Fecha DATE,
+	Monto DECIMAL (10,2),
+	idClaseActividad INT,
+	FOREIGN KEY (IdClaseActividad) REFERENCES app.ClaseActividad(IdClaseActividad)
+)

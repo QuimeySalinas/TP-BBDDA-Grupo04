@@ -200,3 +200,87 @@ BEGIN
 	
 END;
 
+--SP para generar reservas de actividades deportivas
+CREATE PROCEDURE GenerarReservaActDeportiva
+@IdSocio CHAR(7),
+@Actividad CHAR(20),
+@Fecha DATETIME
+AS
+BEGIN
+	SET NOCOUNT ON;
+
+		INSERT INTO app.ReservaActividad (Fecha, NumeroDeSocio, IdClaseActividad, Monto)
+		SELECT
+			GETDATE(),
+			@IdSocio,
+			CA.IdClaseActividad,
+			AD.Monto + S.Saldo
+		FROM
+			app.ClaseActividad CA
+		INNER JOIN
+			app.ActividadDeportiva AD ON CA.IdActividad = AD.IdActividad AND AD.Nombre = @Actividad
+		INNER JOIN
+			app.Socio S = @IdSocio 
+			AND AD.Monto > ABS(S.Saldo)
+		WHERE
+			CA.Fecha = @Fecha
+			AND @IdSocio NOT IN		(SELECT C.NumeroDeSocio FROM app.Cuota C
+									INNER JOIN app.CuotaMorosa CM ON C.IdCuota = CM.IdCuota
+									WHERE CM.Estado = 'VEN') --Que el socio no tenga ninguna cuota vencida, si es así, no puede realizar la reserva.
+
+END;
+
+--SP que permite generar reservas de actividades extras, como pileta verano o alquiler de SUM
+CREATE PROCEDURE GenerarReservaActExtra
+@IdSocio CHAR(7),
+@Actividad CHAR(20),
+@Fecha DATETIME
+AS
+BEGIN
+	SET NOCOUNT ON;
+
+		INSERT INTO app.ReservaActividad (Fecha, NumeroDeSocio, IdClaseActividad, Monto)
+		SELECT
+			GETDATE(),
+			@IdSocio,
+			CA.IdClaseActividad,
+			AE.Monto + S.Saldo
+		FROM
+			app.ClaseActividad CA
+		INNER JOIN
+			app.ActividadExtra AE ON CA.IdActividadExtra = AE.IdActividadExtra AND AE.Nombre = @Actividad
+		INNER JOIN
+			app.Socio S = @IdSocio 
+			AND AE.Monto > ABS(S.Saldo)
+		WHERE
+			CA.Fecha = @Fecha
+			AND @IdSocio NOT IN		(SELECT C.NumeroDeSocio FROM app.Cuota C
+									INNER JOIN app.CuotaMorosa CM ON C.IdCuota = CM.IdCuota
+									WHERE CM.Estado = 'VEN') --Que el socio no tenga ninguna cuota vencida, si es así, no puede realizar la reserva.
+
+END;
+
+--SP que genera el reintegro en caso de que haya llovido durante la jornada: Se ejecuta una vez al día:
+CREATE PROCEDURE GenerarReintegroPorLluvia
+AS
+BEGIN
+	SET NOCOUNT ON;
+		
+		INSERT INTO app.Reintegro (Estado, Fecha, IdClaseActividad, Monto)
+		SELECT
+			'PEN',
+			GETDATE(),
+			CA.IdClaseActividad,
+			COALESCE(-(AD.Monto * 0.6), -(AE.Monto * 0.6)) --Se ingresa el registro con un monto del 60% del valor de la actividad realizada
+		FROM
+			app.ClaseActividad CA 
+		INNER JOIN
+			app.Clima C ON CA.IdClima = C.IdClima
+		LEFT JOIN
+			app.ActividadDeportiva AD ON CA.IdActividad = AD.IdActividad
+		LEFT JOIN 
+			app.ActividadExtra AE ON CA.IdActividadExtra = AE.IdActividadExtra
+		WHERE
+			C.Lluvia > 0
+			AND COALESCE(AD.Monto, AE.Monto) IS NOT NULL --Que siempre inserte un monto.
+END;
