@@ -30,8 +30,8 @@ BEGIN
     );
 
     -- Cargamos de manera dinamica la query para extraer datos del excel provisto
-    -- Se utilizara SQL dinámico ya que el OPENROWSET no permite la concatenacion de strings dentro del mismo. 
-    -- Entonces conviene utilizar SQL dinámico justamente para esto.
+    -- Se utilizara SQL dinï¿½mico ya que el OPENROWSET no permite la concatenacion de strings dentro del mismo. 
+    -- Entonces conviene utilizar SQL dinï¿½mico justamente para esto.
     DECLARE @SQL NVARCHAR(MAX);
 
     SET @SQL = '
@@ -75,7 +75,7 @@ BEGIN
         ON B.Nombre COLLATE Latin1_General_CI_AI = A.ObraSocial COLLATE Latin1_General_CI_AI
     WHERE A.ObraSocial IS NOT NULL AND B.Nombre IS NULL;
 
-    -- La tabla #TemporalRespDePago se elimina automáticamente al finalizar el SP
+    -- La tabla #TemporalRespDePago se elimina automï¿½ticamente al finalizar el SP
 END;
 
 
@@ -102,9 +102,9 @@ BEGIN
         TelefonoContactoEmergencia VARCHAR(50) COLLATE Latin1_General_CI_AI
     );
 
-    -- Cargamos de manera dinámica la query para extraer datos del excel provisto
-    -- Se utilizará SQL dinámico ya que el OPENROWSET no permite la concatenación de strings dentro del mismo. 
-    -- Entonces conviene utilizar SQL dinámico justamente para esto.
+    -- Cargamos de manera dinï¿½mica la query para extraer datos del excel provisto
+    -- Se utilizarï¿½ SQL dinï¿½mico ya que el OPENROWSET no permite la concatenaciï¿½n de strings dentro del mismo. 
+    -- Entonces conviene utilizar SQL dinï¿½mico justamente para esto.
     DECLARE @SQL NVARCHAR(MAX);
 
     SET @SQL = N'
@@ -119,7 +119,7 @@ BEGIN
     EXEC sp_executesql @SQL;
 
     ------------------------------------ Procesamiento de los datos temporales ------------------------------------
-    -- Insertamos los socios no responsables (si no están registrados)
+    -- Insertamos los socios no responsables (si no estï¿½n registrados)
     INSERT INTO app.Socio (NumeroDeSocio, Documento, Nombre, Apellido, EmailPersonal, Telefono, FechaNacimiento, NumeroObraSocial)
     SELECT 
         NroSocio COLLATE Latin1_General_CI_AI, 
@@ -132,7 +132,7 @@ BEGIN
         NroSocioObraSocial COLLATE Latin1_General_CI_AI
     FROM #GrupoFamiliarTemporal A
     WHERE NOT EXISTS (  
-        SELECT 1 FROM app.Socio B WHERE B.NumeroDeSocio = A.NroSocio COLLATE Latin1_General_CI_AI -- Que no esté registrado previamente
+        SELECT 1 FROM app.Socio B WHERE B.NumeroDeSocio = A.NroSocio COLLATE Latin1_General_CI_AI -- Que no estï¿½ registrado previamente
     )
     AND Nombre NOT LIKE '%[^a-zA-Z ]%' 
     AND Apellido NOT LIKE '%[^a-zA-Z ]%'
@@ -157,9 +157,9 @@ BEGIN
     SET s.IdGrupoFamiliar = g.IdGrupoFamiliar
     FROM app.Socio s
     INNER JOIN #GrupoFamiliarTemporal t 
-        ON s.NumeroDeSocio = t.NroSocio COLLATE Latin1_General_CI_AI -- Socios no responsables que están en el excel
+        ON s.NumeroDeSocio = t.NroSocio COLLATE Latin1_General_CI_AI -- Socios no responsables que estï¿½n en el excel
     INNER JOIN app.GrupoFamiliar g 
-        ON g.NumeroDeSocioResponsable = t.NroSocioRP COLLATE Latin1_General_CI_AI; -- Obtenemos datos del grupo familiar según su responsable.
+        ON g.NumeroDeSocioResponsable = t.NroSocioRP COLLATE Latin1_General_CI_AI; -- Obtenemos datos del grupo familiar segï¿½n su responsable.
 
     -- La tabla #GrupoFamiliarTemporal se elimina una vez finaliza el SP
 END;
@@ -185,7 +185,7 @@ BEGIN
         VigenteHasta DATE
     );
 
-    -- Cargamos con SQL Dinámico las tablas (debido a que la RutaArchivo es una variable)
+    -- Cargamos con SQL Dinï¿½mico las tablas (debido a que la RutaArchivo es una variable)
     DECLARE @SQL NVARCHAR(MAX);
 
     SET @SQL = '
@@ -221,7 +221,7 @@ BEGIN
 		AND t.ValorPorMes = a.Monto AND t.VigenteHasta = a.FechaVigencia
 	);
 
-    -- Insertamos los datos de categorías de socios evitando duplicados
+    -- Insertamos los datos de categorï¿½as de socios evitando duplicados
     INSERT INTO app.CategoriaSocio (nombre)
     SELECT DISTINCT CategoriaSocio COLLATE Latin1_General_CI_AI
     FROM #CategoriasSocio
@@ -230,7 +230,7 @@ BEGIN
         WHERE cs.nombre COLLATE Latin1_General_CI_AI = CategoriaSocio COLLATE Latin1_General_CI_AI
     );
 
-    -- Ingresamos los costos de cada categoría
+    -- Ingresamos los costos de cada categorï¿½a
     INSERT INTO app.CostoMembresia (Monto, Fecha, idCategoriaSocio)
     SELECT 
         t.ValorCuota, 
@@ -307,3 +307,125 @@ END TRY
 BEGIN CATCH
 	PRINT 'Error de importacion! ' + ERROR_MESSAGE(); 
 END CATCH
+
+--Importacion de presentismos a clases
+GO
+CREATE OR ALTER PROCEDURE imp.ImportarPresentismoClases
+    @RutaArchivo NVARCHAR(MAX)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Crear tabla temporal
+    CREATE TABLE #PresentismoExcel (
+        Nombre VARCHAR(50) COLLATE Latin1_General_CI_AI,
+        Act VARCHAR(50) COLLATE Latin1_General_CI_AI,
+        Fecha DATE,
+        Asis VARCHAR(5) COLLATE Latin1_General_CI_AI,
+        IdSocio CHAR(7) COLLATE Latin1_General_CI_AI
+    );
+
+    -- Cargar datos del Excel en tabla temporal con SQL dinÃ¡mico
+    DECLARE @SQL NVARCHAR(MAX);
+    SET @SQL = '
+    INSERT INTO #PresentismoExcel
+    SELECT 
+        [Profesor] COLLATE Latin1_General_CI_AI AS Nombre, 
+        [Actividad] COLLATE Latin1_General_CI_AI AS Act, 
+        [fecha de asistencia] AS Fecha,  
+        [Asistencia] COLLATE Latin1_General_CI_AI AS Asis, 
+        [Nro de Socio] COLLATE Latin1_General_CI_AI AS IdSocio
+    FROM OPENROWSET(
+        ''Microsoft.ACE.OLEDB.12.0'',
+        ''Excel 12.0 Xml;HDR=YES;Database=' + @RutaArchivo + ''',
+        ''SELECT * FROM [presentismo_actividades$]''
+    );';
+
+    EXEC sp_executesql @SQL;
+
+    -- Cargamos la asistencia a clases actualizando la tabla Reserva:
+    UPDATE R
+    SET R.Asistio = PE.Asis
+    FROM app.Reserva R
+    INNER JOIN #PresentismoExcel PE ON R.NumeroDeSocio = PE.IdSocio COLLATE Latin1_General_CI_AI
+    INNER JOIN app.ClaseActividad CA ON R.IdClaseActividad = CA.IdClaseActividad
+    INNER JOIN app.Profesor P ON CA.IdProfesor = P.IdProfesor
+    INNER JOIN app.ActividadDeportiva AD ON CA.IdActividad = AD.IdActividad
+    WHERE P.Nombre COLLATE Latin1_General_CI_AI = PE.Nombre COLLATE Latin1_General_CI_AI
+      AND CA.Fecha = PE.Fecha
+      AND AD.Nombre COLLATE Latin1_General_CI_AI = PE.Act COLLATE Latin1_General_CI_AI
+      AND PE.Asis COLLATE Latin1_General_CI_AI IN ('P','A','J');
+
+    -- Eliminamos la tabla temporal.
+    DROP TABLE #PresentismoExcel;
+END;
+
+
+--Importar pagos de socios responsables desde excel
+GO
+CREATE OR ALTER PROCEDURE imp.ImportarPagosDesdeExcel
+    @RutaArchivo NVARCHAR(MAX)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    -- Crear tabla temporal
+    CREATE TABLE #PagosExcel (
+        FechaPago DATE,
+        MedioDePago VARCHAR(50) COLLATE Latin1_General_CI_AI,
+        NumeroDeSocio CHAR(7) COLLATE Latin1_General_CI_AI,
+        MontoPago DECIMAL(12,2)
+    );
+
+    -- Cargar datos del Excel en tabla temporal con SQL dinÃ¡mico
+    DECLARE @SQL NVARCHAR(MAX);
+    SET @SQL = '
+    INSERT INTO #PagosExcel
+    SELECT CONVERT(DATE, [fecha]) AS FechaPago,
+        [Medio de pago] COLLATE Latin1_General_CI_AI AS MedioDePago,
+        [Responsable de pago] COLLATE Latin1_General_CI_AI AS NumeroDeSocio,
+        [valor] AS MontoPago
+    FROM OPENROWSET(
+        ''Microsoft.ACE.OLEDB.12.0'',
+        ''Excel 12.0 Xml;HDR=YES;Database=' + @RutaArchivo + ''',
+        ''SELECT * FROM [pago cuotas$]''
+    );';
+    EXEC sp_executesql @SQL;
+	
+    -- Se enumeran de menor a mayor las facturas pendientes por socio y monto  
+    WITH FacturasPendientes(NumeroDeSocio,MontoTotal,IdFactura,NroFactura) AS (
+        SELECT 
+            C.NumeroDeSocio, 
+            C.MontoTotal, 
+            F.IdFactura,
+            ROW_NUMBER() OVER (PARTITION BY C.NumeroDeSocio, C.MontoTotal ORDER BY F.FechaFacturacion) AS NroFactura
+        FROM app.Cuota C
+        INNER JOIN app.Factura F ON C.IdCuota = F.IdCuota AND F.Estado IN ('PEN','VEN')
+    ),
+    -- Se enumeran los pagos importados por socio y monto
+    PagosExcelNumerados(FechaPago,MedioDePago,NumeroDeSocio,MontoPago,NroPago) AS (
+        SELECT 
+            PE.FechaPago,
+            PE.MedioDePago COLLATE Latin1_General_CI_AI,
+            PE.NumeroDeSocio COLLATE Latin1_General_CI_AI,
+            PE.MontoPago,
+            ROW_NUMBER() OVER (PARTITION BY PE.NumeroDeSocio, PE.MontoPago ORDER BY PE.FechaPago) AS NroPago
+        FROM #PagosExcel PE
+    )
+    -- Insertar pagos matcheando por nÃºmero correlativo entre pagos y facturas
+   INSERT INTO app.Pago (FechaPago, Estado, IdFactura, IdMedioPago)
+    SELECT 
+        P.FechaPago,
+        'IMP' AS Estado,
+        F.IdFactura,
+        MP.IdMedioPago
+    FROM PagosExcelNumerados P
+    INNER JOIN FacturasPendientes F
+        ON P.NumeroDeSocio = F.NumeroDeSocio COLLATE Latin1_General_CI_AI
+        AND P.MontoPago = F.MontoTotal 
+        AND P.NroPago = F.NroFactura
+    INNER JOIN app.MedioPago MP 
+        ON MP.Nombre COLLATE Latin1_General_CI_AI = P.MedioDePago COLLATE Latin1_General_CI_AI;
+
+    -- Eliminar la tabla temporal
+    DROP TABLE #PagosExcel;
+END;
