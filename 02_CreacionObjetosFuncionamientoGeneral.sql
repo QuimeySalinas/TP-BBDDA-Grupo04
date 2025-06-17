@@ -122,6 +122,29 @@ BEGIN
 		
 END;
 
+--Se crea un trigger que modifica el estado de la factura siempre que entre un pago
+CREATE TRIGGER trg_ModificarEstadoFactura
+ON app.Pago
+AFTER INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    UPDATE app.Factura 
+	SET Estado = 'PAG'
+	FROM app.Factura A
+	INNER JOIN inserted B on A.IdFactura = B.IdFactura
+
+	--Modificamos el estado en la tabla CuotaMorosa en caso de que se aplique un pago a una cuota vencida:
+	UPDATE CM
+	SET CM.Estado = 'PAG'
+	FROM app.CuotaMorosa CM
+	INNER JOIN app.Cuota C ON CM.IdCuota = C.IdCuota
+	INNER JOIN app.Factura F ON C.IdCuota = F.IdCuota
+	INNER JOIN inserted I ON F.IdFactura = I.IdFactura
+	WHERE CM.Estado = 'VEN'
+END;
+
 
 --Trigger que genera una cuota cada vez que haya una inscripcion de un nuevo socio.
 CREATE TRIGGER trg_PrimerCuota
@@ -143,6 +166,41 @@ BEGIN
 	INNER JOIN app.CostoMembresia CM ON CS.iDCategoriaSocio = CM.iDCategoriaSocio
 	LEFT JOIN app.Descuento D ON i.NumeroDeSocio = D.NumeroDeSocio AND D.FechaVigencia <= GETDATE()
 END;
+
+--Trigger que modifica el campo Saldo del cliente una vez que se genera un reintegro
+CREATE TRIGGER trg_ModificarSaldoACuenta
+ON app.Reintegro
+AFTER INSERT 
+AS
+BEGIN
+	SET NOCOUNT ON;
+
+	UPDATE S
+	SET S.Saldo = S.Saldo + I.Monto
+	FROM inserted I 
+	INNER JOIN app.ClaseActividad CA ON I.IdClaseActividad = CA.IdClaseActividad
+	INNER JOIN app.ReservaActividad RA ON CA.IdClaseActividad = RA.IdClaseActividad
+	INNER JOIN app.Socio S ON RA.NumeroDeSocio = S.NumeroDeSocio AND I.Estado = 'PEN'
+
+	UPDATE R
+	SET R.Estado = 'FIN'
+	FROM app.Reintegro R 
+	WHERE R.Estado = 'PEN'
+
+END;
+
+--Trigger que modifica el estado del pago cuando se genere una devolucion:
+CREATE TRIGGER ModifEstadoPago
+ON app.Devolucion
+AFTER INSERT
+AS 
+BEGIN
+	SET NOCOUNT ON;
+	UPDATE app.Pago
+	SET Estado = 'ANU'
+	FROM inserted i 
+	INNER JOIN app.Pago C on i.IdPago = C.IdPAgo
+END
 
 --SP Que genera las cuotas siempre que el socio cumpla un mes mas
 CREATE PROCEDURE GenerarCuota
@@ -283,4 +341,82 @@ BEGIN
 		WHERE
 			C.Lluvia > 0
 			AND COALESCE(AD.Monto, AE.Monto) IS NOT NULL --Que siempre inserte un monto.
+END;
+
+--Creamos un SP que genera un devolución en el caso de que se requiera:
+CREATE PROCEDURE GenerarDevolucion
+@idPago INT
+AS
+BEGIN
+	SET NOCOUNT ON;
+	INSERT INTO app.Devolucion(MontoTotal, FechaDevolucion, Estado, IdPago)
+	SELECT
+		-(C.MontoTotal),
+		GETDATE(),
+		'PEN',
+		P.IdPago
+	FROM app.Pago P 
+		INNER JOIN app.Factura F ON P.IdFactura = F.IdFactura AND P.IDPago = @idPago
+		INNER JOIN app.Cuota C ON F.IdCuota = C.IdCuota
+END;
+GO
+
+--SP Que procesa las devoluciones, generando Notas de Crédito. Se ejecuta despues de GenerarDevolucion:
+CREATE PROCEDURE ProcesarDevolucion
+AS
+BEGIN
+	SET NOCOUNT ON;
+	INSERT INTO app.Factura (Tipo, FechaFacturacion, PrimerVencimiento, SegundoVencimiento, Estado, idCuota)
+    SELECT 
+		'Nota de credito',
+        GETDATE(),
+        DATEADD(DAY, 5,GETDATE()) AS PrimerVto,
+        DATEADD(DAY, 10, GETDATE()) AS SegundoVto,
+		'PAG',
+		C.IdCuota
+	FROM 
+		app.Devolucion D 
+		INNER JOIN app.Pago P ON D.IdPago = P.IdPago
+		INNER JOIN app.Factura F ON P.IdFactura = F.IdFactura
+		INNER JOIN app.Cuota C ON F.IdCuota = C.IdCuota
+	WHERE
+		D.Estado = 'PEN'
+	
+	--Modificamos el estado de la devolución para que no se siga procesando en el futuro
+	UPDATE app.Devolucion
+	SET Estado = 'DEV'
+	WHERE Estado = 'PEN'
+END;
+
+--SP que se ejecuta una vez al día y monitorea el estado de la cuota. En caso de que este vencida, modifica el campo MontoTotal para sumarle el recargo
+--Y actualiza el estado de la factura.
+CREATE PROCEDURE RevisionFacturaVencida
+AS
+BEGIN
+	--Actualizamos el precio de la Cuota y le sumamos el Recargo.
+	UPDATE C
+	SET C.MontoTotal = C.MontoCuota + Recargo
+	FROM app.Cuota C 
+	INNER JOIN app.Factura F ON C.IdCuota = F.IdCuota
+	WHERE F.SegundoVencimiento < GETDATE()
+	AND F.Estado = 'PEN'
+
+	--Actualizamos el estado de la Factura a Vencida:
+	UPDATE app.Factura
+	SET Estado = 'VEN'
+	WHERE SegundoVencimiento < GETDATE()
+	AND Estado = 'PEN' --Estado Impaga
+END;
+
+--SP que carga la tabla DeudaMorosa en caso de que haya alguna factura vencida:
+CREATE PROCEDURE MonitorDeDeuda 
+AS  
+BEGIN  
+    INSERT INTO app.CuotaMorosa (Fecha, IdCuota)
+	SELECT
+		GETDATE(),
+		IdCuota
+		FROM app.Factura F
+		WHERE F.Estado = 'VEN'
+		AND NOT EXISTS(SELECT 1 FROM app.CuotaMorosa WHERE IdCuota = F.IdCuota)
 END;
