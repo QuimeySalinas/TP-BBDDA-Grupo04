@@ -103,8 +103,8 @@ BEGIN
 	SET NOCOUNT ON;
 
 		SELECT 
-			CS.Nombre, 
-			AD.Nombre,
+			CS.Nombre AS CategoriaSocio, 
+			AD.Nombre AS ActividadDeportiva,
 			COUNT(*) AS CantInasistencias
 		FROM 
 			app.ReservaActividad R
