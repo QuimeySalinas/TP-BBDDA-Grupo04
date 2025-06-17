@@ -22,4 +22,4 @@
 
 ⦁	Se quitó la entidad "Transaccion" ya que, no era necesario tenerla para este caso de estudio.
     
-⦁	Se creó la entidad "morosidad", donde se va a generar un registro cada vez que se venza una cuota que aún no tenga un pago asociado.
+⦁	Se creó la entidad "CuotaMorosa", donde se va a generar un registro cada vez que se venza una cuota que aún no tenga un pago asociado.
