@@ -97,6 +97,32 @@ BEGIN
 		WHERE i.Tipo = 'Nota de credito';
 END
 
+--Trigger que genera una factura por cada actividad generada
+CREATE TRIGGER trg_GenerarFacturaPorReserva
+ON app.ReservaActividad
+AFTER INSERT 
+AS
+BEGIN
+	SET NOCOUNT ON;
+		INSERT INTO app.Factura (Tipo, FechaFacturacion, PrimerVencimiento, SegundoVencimiento, Estado, IdCuota, IdReserva)
+		SELECT 
+			'Factura',
+			CONVERT(DATE, i.Fecha) AS Fecha,
+			DATEADD(DAY, 5, CONVERT(DATE, i.Fecha)) AS PrimerVto,
+			DATEADD(DAY, 10, CONVERT(DATE, i.Fecha)) AS SegundoVto,
+			'PEN',
+			NULL,
+			i.IdReserva
+		FROM 
+			inserted i
+		INNER JOIN
+			app.ClaseActividad CA ON i.IdClaseActividad = CA.IdClaseActividad
+		WHERE
+			CA.IdActividadExtra IS NOT NULL; --Solo genera factura al momento si la reserva es por una actividad extra.
+		
+END;
+
+
 --Trigger que genera una cuota cada vez que haya una inscripcion de un nuevo socio.
 CREATE TRIGGER trg_PrimerCuota
 ON app.Socio
