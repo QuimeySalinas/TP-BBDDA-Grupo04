@@ -145,12 +145,12 @@ SELECT
 FROM app.ActividadDeportiva
 WHERE Nombre = 'Futsal' OR Nombre = 'Natacion'; --Insertamos dos registros en total
 
---Con esta consulta podemos ver las clases que coinciden en fecha y hora con nuestros datos en Clima
-SELECT * FROM app.ClaseActividad ca
-INNER JOIN app.Clima c ON ca.Fecha = c.Tiempo
 --Ahora si, importamos los climas:
 EXEC imp.ImportacionClimas 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\ArchivosImportacion\open-meteo-buenosaires_2024.csv'
 EXEC imp.ImportacionClimas 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\ArchivosImportacion\open-meteo-buenosaires_2025.csv'
 --Verificamos la correcta insersion de datos:
 SELECT * FROM app.Clima
 SELECT * FROM app.ClaseActividad WHERE IdClima IS NOT NULL --Se actualizan los datos que coinciden en la fecha
+
+--Con esta consulta podemos ver las clases que coinciden en fecha y hora con nuestros datos en Clima
+SELECT * FROM app.ClaseActividad ca INNER JOIN app.Clima c ON ca.Fecha = c.Tiempo

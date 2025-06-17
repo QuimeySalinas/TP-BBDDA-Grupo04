@@ -50,54 +50,54 @@ BEGIN
 END
 
 GO
-
 --REPORTE 2
 --Ingresos acumulados mensuales por clase deportiva 
 --(No se incluyen recargos por morosidad ni descuentos aplicados a socios)
 CREATE OR ALTER PROCEDURE rep.IngresosAcumuladosMensualesActividadDeportiva
 AS
 BEGIN
-	WITH IngresosPorMes AS (
-		SELECT 
-			DATEPART(mm, r.Fecha) Mes,
-			a.Nombre,
-			a.Monto PrecioPorClase,
-			a.IdActividad,
-			COUNT(*) CantidadReservas,
-			COUNT(*) * a.Monto IngresoMensual
-		FROM app.ReservaActividad r
-		INNER JOIN app.ClaseActividad c ON r.IdClaseActividad = c.IdClaseActividad
-		INNER JOIN app.ActividadDeportiva a ON c.IdActividad = a.IdActividad
-		WHERE DATEPART(year, r.Fecha) = DATEPART(year, GETDATE()) -- Solo el a�o actual
-		GROUP BY DATEPART(mm, r.Fecha), a.Nombre, a.Monto,a.IdActividad
-	),
-	IngresosAcumulados AS (
-		SELECT 
-			Mes,
-			Nombre,
-			PrecioPorClase,
-			CantidadReservas,
-			IngresoMensual,
-			SUM(IngresoMensual) OVER(PARTITION BY Nombre ORDER BY Mes) AS IngresoAcumulado
-		FROM IngresosPorMes
-	)
+    -- 1. Identificamos socios únicos que participaron de cada actividad por mes
+    WITH SociosUnicosPorMes AS (
+        SELECT DISTINCT
+            DATEPART(MONTH, r.Fecha) AS Mes,
+            a.IdActividad,
+            a.Nombre,
+            a.Monto,
+            r.NumeroDeSocio
+        FROM app.ReservaActividad r
+        INNER JOIN app.ClaseActividad c ON r.IdClaseActividad = c.IdClaseActividad
+        INNER JOIN app.ActividadDeportiva a ON c.IdActividad = a.IdActividad
+        WHERE 
+            YEAR(r.Fecha) = YEAR(GETDATE())
+            AND MONTH(r.Fecha) <= MONTH(GETDATE()) -- solo hasta el mes actual
+    ),
+    IngresosAcumulados AS (
+        SELECT 
+            IdActividad,
+            Nombre,
+            Monto,
+            COUNT(DISTINCT CONCAT(NumeroDeSocio, Mes)) AS CantidadSociosMeses,
+            COUNT(DISTINCT CONCAT(NumeroDeSocio, Mes)) * Monto AS IngresoAcumulado
+        FROM SociosUnicosPorMes
+        GROUP BY IdActividad, Nombre, Monto
+    )
 
-	SELECT 
-		FORMAT(DATEFROMPARTS(YEAR(GETDATE()), Mes, 1), 'MMMM', 'es-ES') AS Mes, 
-		Nombre,
-		PrecioPorClase [Precio por clase],
-		CantidadReservas [Cantidad de reservas],
-		--IngresoMensual [Ingreso mensual], Si se desea agregar
-		IngresoAcumulado [Ingreso acumulado]
-	FROM IngresosAcumulados
-	ORDER BY Mes;
+    SELECT 
+        Nombre AS [Actividad],
+        Monto AS [Monto mensual],
+        CantidadSociosMeses AS [Inscripciones mensuales],
+        IngresoAcumulado AS [Ingresos mensuales acumulados]
+    FROM IngresosAcumulados
+    ORDER BY Nombre;
 END
 
 
+
 --REPORTE 3:Reporte de la cantidad de socios que han realizado alguna actividad de forma alternada 
---(inasistencias) por categoría de socios y actividad, ordenado según cantidad de inasistencias 
+--(inasistencias) por categoría de socios y actividad, ordenado según cantidad de inasistencias
 --ordenadas de mayor a menor.
-CREATE PROCEDURE rep.CantidadInasistencias
+GO
+CREATE OR ALTER PROCEDURE rep.CantidadInasistencias
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -127,8 +127,8 @@ END
 
 --REPORTE 4: Reporte que contenga a los socios que no han asistido a alguna clase de la actividad que 
 --realizan. El reporte debe contener: Nombre, Apellido, edad, categoría y la actividad 
-
-CREATE PROCEDURE rep.InasistenciasAClasesPorSocio
+GO
+CREATE OR ALTER PROCEDURE rep.InasistenciasAClasesPorSocio
 AS
 BEGIN
 	SET NOCOUNT ON;
