@@ -47,7 +47,7 @@ BEGIN
 
     ------------------------------------ Procesamiento de los datos temporales ------------------------------------
 
-    INSERT INTO app.Socio (NumeroDeSocio, Documento, Nombre, Apellido, EmailPersonal, Telefono, FechaNacimiento, NumeroObraSocial, Saldo)
+    INSERT INTO app.Socio (NumeroDeSocio, Documento, Nombre, Apellido, EmailPersonal, Telefono, FechaNacimiento, NumeroObraSocial, Saldo,IdCategoriaSocio)
     SELECT 
         NroSocio COLLATE Latin1_General_CI_AI, 
         DNI COLLATE Latin1_General_CI_AI, 
@@ -57,7 +57,13 @@ BEGIN
         TelefonoContacto COLLATE Latin1_General_CI_AI, 
         FechaNacimiento, 
         NroSocioObraSocial COLLATE Latin1_General_CI_AI,
-		0 --Inicializamos el saldo en 0
+		0, --Inicializamos el saldo en 0
+		CASE  
+			WHEN DATEDIFF(YEAR, FechaNacimiento, GETDATE()) < 18 THEN COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Menor'), NULL)  
+			WHEN DATEDIFF(YEAR, FechaNacimiento, GETDATE()) BETWEEN 18 AND 25 THEN COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Cadete'), NULL)  
+			ELSE COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Mayor'), NULL)  
+		END  
+
     FROM #TemporalRespDePago A
     WHERE Nombre NOT LIKE '%[^a-zA-Z ]%' AND 
           Apellido NOT LIKE '%[^a-zA-Z ]%' AND  
@@ -121,7 +127,7 @@ BEGIN
 
     ------------------------------------ Procesamiento de los datos temporales ------------------------------------
     -- Insertamos los socios no responsables (si no est�n registrados)
-    INSERT INTO app.Socio (NumeroDeSocio, Documento, Nombre, Apellido, EmailPersonal, Telefono, FechaNacimiento, NumeroObraSocial,Saldo)
+    INSERT INTO app.Socio (NumeroDeSocio, Documento, Nombre, Apellido, EmailPersonal, Telefono, FechaNacimiento, NumeroObraSocial,Saldo,IdCategoriaSocio)
     SELECT 
         NroSocio COLLATE Latin1_General_CI_AI, 
         DNI COLLATE Latin1_General_CI_AI, 
@@ -131,7 +137,12 @@ BEGIN
         TelefonoContacto COLLATE Latin1_General_CI_AI, 
         FechaNacimiento, 
         NroSocioObraSocial COLLATE Latin1_General_CI_AI,
-		0 --Inicializamos el saldo en 0
+		0, --Inicializamos el saldo en 0
+		CASE  
+			WHEN DATEDIFF(YEAR, FechaNacimiento, GETDATE()) < 18 THEN COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Menor'), NULL)  
+			WHEN DATEDIFF(YEAR, FechaNacimiento, GETDATE()) BETWEEN 18 AND 25 THEN COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Cadete'), NULL)  
+			ELSE COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Mayor'), NULL)  
+		END 
     FROM #GrupoFamiliarTemporal A
     WHERE NOT EXISTS (  
         SELECT 1 FROM app.Socio B WHERE B.NumeroDeSocio = A.NroSocio COLLATE Latin1_General_CI_AI -- Que no est� registrado previamente
@@ -357,8 +368,8 @@ BEGIN
 
     -- Cargamos la asistencia a clases actualizando la tabla Reserva:
     UPDATE R
-    SET R.Asistio = PE.Asis
-    FROM app.Reserva R
+    SET R.Asistencia = PE.Asis
+    FROM app.ReservaActividad R
     INNER JOIN #PresentismoExcel PE ON R.NumeroDeSocio = PE.IdSocio COLLATE Latin1_General_CI_AI
     INNER JOIN app.ClaseActividad CA ON R.IdClaseActividad = CA.IdClaseActividad
     INNER JOIN app.Profesor P ON CA.IdProfesor = P.IdProfesor
