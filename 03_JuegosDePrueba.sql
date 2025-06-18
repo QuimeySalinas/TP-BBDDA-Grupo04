@@ -36,7 +36,7 @@ INSERT INTO app.MedioPago (Nombre, Descripcion) VALUES
 	('Visa','Pago con tarjeta'),
 	('MasterCard','Pago con tarjeta'),
 	('Tarjeta Naranja','Pago con tarjeta'),
-	('Pago F�cil','Pago en efectivo'),
+	('Pago F�cil','Pago en efectivo'),
 	('Efectivo','Pago en efectivo'),
 	('MercadoPago','Transferencia');
 
@@ -154,3 +154,79 @@ SELECT * FROM app.ClaseActividad WHERE IdClima IS NOT NULL --Se actualizan los d
 
 --Con esta consulta podemos ver las clases que coinciden en fecha y hora con nuestros datos en Clima
 SELECT * FROM app.ClaseActividad ca INNER JOIN app.Clima c ON ca.Fecha = c.Tiempo
+
+--Se Insertan 3 registros de cuotas vencidas para la prueba del SP.
+INSERT INTO app.Cuota(FechaEmision, MontoCuota, Recargo, MontoTotal, NumeroDeSocio) VALUES ('2025-01-01', 5000, 500, 5000, 'SN-4022');
+INSERT INTO app.Cuota(FechaEmision, MontoCuota, Recargo, MontoTotal, NumeroDeSocio) VALUES ('2025-01-15', 1000, 100, 1000, 'SN-4024');
+INSERT INTO app.Cuota(FechaEmision, MontoCuota, Recargo, MontoTotal, NumeroDeSocio) VALUES ('2025-03-01', 15000, 1500, 15000, 'SN-4023');
+
+EXEC RevisionFacturaVencida;
+
+--Genera los registros en la tabla cuotamorosa basandose en las facturas que se marcaron como vencidas.
+EXEC MonitorDeDeuda;
+
+--Este SP genera devolución para un pago X y genera registros en la tabla devolución
+--Debe ejecutarse post importacion de los pagos.
+EXEC GenerarDevolucion @idPago = '10'
+
+SELECT * FROM App.Devolucion
+
+--Procesa la devolución generando una nota de crédito en la cuenta
+EXEC ProcesarDevolucion
+
+SELECT * FROM app.Factura WHERE tipo = 'Nota de credito'
+
+--Este SP se ejecuta una vez al día, se debe ejecutar cuando un cliente pase un mes sin cuotas, para ello,
+--Podemos eliminar las cuotas del cliente generadas el último mes, primero debe eliminarse el item, luego la factura y luego la cuota.
+--Podemos ejecutar estos 3 deletes para la prueba
+DELETE IT
+FROM app.ItemFactura AS IT
+INNER JOIN app.Factura AS F ON IT.IdFactura = F.IdFactura
+INNER JOIN app.Cuota AS C ON F.IdCuota = C.IdCuota
+WHERE C.FechaEmision > DATEADD(DAY, -30, GETDATE())
+  AND C.NumeroDeSocio IN ('SN-4118','SN-4116');
+
+DELETE F
+FROM app.Factura AS F
+INNER JOIN app.Cuota AS C ON F.IdCuota = C.IdCuota
+WHERE C.FechaEmision > DATEADD(DAY, -30, GETDATE())
+  AND C.NumeroDeSocio IN ('SN-4118','SN-4116');
+
+DELETE FROM app.Cuota
+WHERE FechaEmision > DATEADD(DAY, -30, GETDATE())
+  AND NumeroDeSocio IN ('SN-4118','SN-4116');
+
+--Ejecutamos el SP
+EXEC GenerarCuota
+
+--Revisamos que genere registros
+SELECT * FROM app.Cuota WHERE NumeroDeSocio IN ('SN-4118','SN-4116');
+
+--Este SP da por pagas las facturas de los clientes con pago automatico activo. Por ejemplo, generamos un debito automático del socio  SN-4004
+INSERT INTO app.DebitoAutomatico (FechaVigencia, FechaFin, Tipo, NumeroTarjeta)
+VALUES ('2025-01-01', '2026-01-01', 'Tarjeta', '1234');
+
+UPDATE app.Socio 
+SET IdDebitoAutomatico = DA.IdDebitoAutomatico
+FROM app.DebitoAutomatico DA
+WHERE NumeroTarjeta = '1234'
+AND NumeroDeSocio = 'SN-4004';
+
+EXEC PagoDebitoAutomático
+
+--Este SP genera una reserva de actividad. Debe ejecutarse una vez importados los socios y las clase actividades.
+EXEC GenerarReservaActDeportiva 	@IdSocio = 'SN-4012', 	@Actividad = 'Futsal', 	@Fecha = '2025-03-03 00:00';
+
+SELECT * FROM app.ReservaActividad WHERE NumeroDeSocio = 'SN-4012';
+
+--SP que genera una reserva a una actividad extra, a su vez, esta reserva genera una factura ya que debe abonarse en el momento para su uso.
+--Tambien debe ejecutarse post importacion de actividades extras que se hace en el archivo 01.
+EXEC GenerarReservaActExtra @IdSocio = 'SN-4012', 	@Actividad = 'Pileta verano', 	@Fecha = '2025-03-05 00:00';
+
+SELECT * FROM app.ReservaActividad WHERE NumeroDeSocio = 'SN-4012';
+
+--Sp que genera los reintegros por lluvia para que despues un trigger modifique el saldo de la cuenta para tenerlo como pago a cuenta.
+EXEC GenerarReintegroPorLluvia;
+
+SELECT * FROM app.Reintegro;
+
