@@ -35,7 +35,7 @@ BEGIN
 		i.NumeroDeSocio
 	FROM inserted i;
 END
-
+GO
 --Se crea un trigger que generará una factura cada vez que se genere una cuota
 CREATE TRIGGER trg_GenerarFacturaPorCuota
 ON app.Cuota
@@ -54,7 +54,7 @@ BEGIN
 		i.idCuota
     FROM inserted i;
 END;
-
+GO
 --Creamos un trigger que va a cargar la tabla ItemFactura cada vez que se genera una factura.
 CREATE TRIGGER CargaItemFactura
 ON app.Factura
@@ -96,7 +96,7 @@ BEGIN
 		INNER JOIN app.Devolucion D ON P.IdPago = D.IdPago
 		WHERE i.Tipo = 'Nota de credito';
 END
-
+GO
 --Trigger que genera una factura por cada actividad generada
 CREATE TRIGGER trg_GenerarFacturaPorReserva
 ON app.ReservaActividad
@@ -121,7 +121,7 @@ BEGIN
 			CA.IdActividadExtra IS NOT NULL; --Solo genera factura al momento si la reserva es por una actividad extra.
 		
 END;
-
+GO
 --Se crea un trigger que modifica el estado de la factura siempre que entre un pago
 CREATE TRIGGER trg_ModificarEstadoFactura
 ON app.Pago
@@ -145,7 +145,7 @@ BEGIN
 	WHERE CM.Estado = 'VEN'
 END;
 
-
+GO
 --Trigger que genera una cuota cada vez que haya una inscripcion de un nuevo socio.
 CREATE TRIGGER trg_PrimerCuota
 ON app.Socio
@@ -166,7 +166,7 @@ BEGIN
 	INNER JOIN app.CostoMembresia CM ON CS.iDCategoriaSocio = CM.iDCategoriaSocio
 	LEFT JOIN app.Descuento D ON i.NumeroDeSocio = D.NumeroDeSocio AND D.FechaVigencia <= GETDATE()
 END;
-
+GO
 --Trigger que modifica el campo Saldo del cliente una vez que se genera un reintegro
 CREATE TRIGGER trg_ModificarSaldoACuenta
 ON app.Reintegro
@@ -188,7 +188,7 @@ BEGIN
 	WHERE R.Estado = 'PEN'
 
 END;
-
+GO
 --Trigger que modifica el estado del pago cuando se genere una devolucion:
 CREATE TRIGGER ModifEstadoPago
 ON app.Devolucion
@@ -201,7 +201,7 @@ BEGIN
 	FROM inserted i 
 	INNER JOIN app.Pago C on i.IdPago = C.IdPAgo
 END
-
+GO
 --SP Que genera las cuotas siempre que el socio cumpla un mes mas
 CREATE PROCEDURE GenerarCuota
 AS
@@ -238,7 +238,7 @@ BEGIN
 	AND (CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0) > ABS(S.Saldo)
 
 END;
-
+GO
 --SP que se ejecuta post ejecución del SP GenerarCuota que da por pagas las facturas de clientes adheridos al débito automático:
 CREATE PROCEDURE PagoDebitoAutomatico
 AS
@@ -257,7 +257,7 @@ BEGIN
 	WHERE F.Estado = 'PEN';
 	
 END;
-
+GO
 --SP para generar reservas de actividades deportivas
 CREATE PROCEDURE GenerarReservaActDeportiva
 @IdSocio CHAR(7),
@@ -287,7 +287,7 @@ BEGIN
 									WHERE CM.Estado = 'VEN') --Que el socio no tenga ninguna cuota vencida, si es así, no puede realizar la reserva.
 
 END;
-
+GO
 --SP que permite generar reservas de actividades extras, como pileta verano o alquiler de SUM
 CREATE PROCEDURE GenerarReservaActExtra
 @IdSocio CHAR(7),
@@ -317,7 +317,7 @@ BEGIN
 									WHERE CM.Estado = 'VEN') --Que el socio no tenga ninguna cuota vencida, si es así, no puede realizar la reserva.
 
 END;
-
+GO
 --SP que genera el reintegro en caso de que haya llovido durante la jornada: Se ejecuta una vez al día:
 CREATE PROCEDURE GenerarReintegroPorLluvia
 AS
@@ -342,7 +342,7 @@ BEGIN
 			C.Lluvia > 0
 			AND COALESCE(AD.Monto, AE.Monto) IS NOT NULL --Que siempre inserte un monto.
 END;
-
+GO
 --Creamos un SP que genera un devolución en el caso de que se requiera:
 CREATE PROCEDURE GenerarDevolucion
 @idPago INT
@@ -360,7 +360,7 @@ BEGIN
 		INNER JOIN app.Cuota C ON F.IdCuota = C.IdCuota
 END;
 GO
-
+GO
 --SP Que procesa las devoluciones, generando Notas de Crédito. Se ejecuta despues de GenerarDevolucion:
 CREATE PROCEDURE ProcesarDevolucion
 AS
@@ -387,7 +387,7 @@ BEGIN
 	SET Estado = 'DEV'
 	WHERE Estado = 'PEN'
 END;
-
+GO
 --SP que se ejecuta una vez al día y monitorea el estado de la cuota. En caso de que este vencida, modifica el campo MontoTotal para sumarle el recargo
 --Y actualiza el estado de la factura.
 CREATE PROCEDURE RevisionFacturaVencida
@@ -407,7 +407,7 @@ BEGIN
 	WHERE SegundoVencimiento < GETDATE()
 	AND Estado = 'PEN' --Estado Impaga
 END;
-
+GO
 --SP que carga la tabla DeudaMorosa en caso de que haya alguna factura vencida:
 CREATE PROCEDURE MonitorDeDeuda 
 AS  
