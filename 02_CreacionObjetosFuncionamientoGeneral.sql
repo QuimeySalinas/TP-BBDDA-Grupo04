@@ -278,7 +278,7 @@ BEGIN
 		INNER JOIN
 			app.ActividadDeportiva AD ON CA.IdActividad = AD.IdActividad AND AD.Nombre = @Actividad
 		INNER JOIN
-			app.Socio S = @IdSocio 
+			app.Socio S ON S.NumeroDeSocio= @IdSocio 
 			AND AD.Monto > ABS(S.Saldo)
 		WHERE
 			CA.Fecha = @Fecha
@@ -308,7 +308,7 @@ BEGIN
 		INNER JOIN
 			app.ActividadExtra AE ON CA.IdActividadExtra = AE.IdActividadExtra AND AE.Nombre = @Actividad
 		INNER JOIN
-			app.Socio S = @IdSocio 
+			app.Socio S ON S.NumeroDeSocio = @IdSocio 
 			AND AE.Monto > ABS(S.Saldo)
 		WHERE
 			CA.Fecha = @Fecha
