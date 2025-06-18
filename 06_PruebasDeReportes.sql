@@ -16,17 +16,7 @@ EXEC rep.MorososRecurrentes '2024-01-01', '2025-12-31'
 EXEC rep.IngresosAcumuladosMensualesActividadDeportiva
 
 --REPORTE 3
--- Para este reporte y el siguiente, habria primero que asignar a los socios sus categorias 
---Para probar haremos lo siguiente:
-UPDATE s
-SET IdCategoriaSocio =
-    CASE 
-        WHEN DATEDIFF(YEAR, s.FechaNacimiento, GETDATE()) < 18 THEN (SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Menor')
-        WHEN DATEDIFF(YEAR, s.FechaNacimiento, GETDATE()) BETWEEN 18 AND 25 THEN (SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Cadete')
-        ELSE (SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Mayor')
-    END
-FROM app.Socio s;
---Ahora si, ejecutamos los reportes:
+
 EXEC rep.CantidadInasistencias
 
 --REPORTE 4

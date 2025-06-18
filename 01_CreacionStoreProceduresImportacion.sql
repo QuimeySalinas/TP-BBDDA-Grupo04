@@ -47,7 +47,7 @@ BEGIN
 
     ------------------------------------ Procesamiento de los datos temporales ------------------------------------
 
-    INSERT INTO app.Socio (NumeroDeSocio, Documento, Nombre, Apellido, EmailPersonal, Telefono, FechaNacimiento, NumeroObraSocial)
+    INSERT INTO app.Socio (NumeroDeSocio, Documento, Nombre, Apellido, EmailPersonal, Telefono, FechaNacimiento, NumeroObraSocial, Saldo)
     SELECT 
         NroSocio COLLATE Latin1_General_CI_AI, 
         DNI COLLATE Latin1_General_CI_AI, 
@@ -56,7 +56,8 @@ BEGIN
         EmailPersonal COLLATE Latin1_General_CI_AI, 
         TelefonoContacto COLLATE Latin1_General_CI_AI, 
         FechaNacimiento, 
-        NroSocioObraSocial COLLATE Latin1_General_CI_AI
+        NroSocioObraSocial COLLATE Latin1_General_CI_AI,
+		0 --Inicializamos el saldo en 0
     FROM #TemporalRespDePago A
     WHERE Nombre NOT LIKE '%[^a-zA-Z ]%' AND 
           Apellido NOT LIKE '%[^a-zA-Z ]%' AND  
@@ -120,7 +121,7 @@ BEGIN
 
     ------------------------------------ Procesamiento de los datos temporales ------------------------------------
     -- Insertamos los socios no responsables (si no est�n registrados)
-    INSERT INTO app.Socio (NumeroDeSocio, Documento, Nombre, Apellido, EmailPersonal, Telefono, FechaNacimiento, NumeroObraSocial)
+    INSERT INTO app.Socio (NumeroDeSocio, Documento, Nombre, Apellido, EmailPersonal, Telefono, FechaNacimiento, NumeroObraSocial,Saldo)
     SELECT 
         NroSocio COLLATE Latin1_General_CI_AI, 
         DNI COLLATE Latin1_General_CI_AI, 
@@ -129,7 +130,8 @@ BEGIN
         EmailPersonal COLLATE Latin1_General_CI_AI, 
         TelefonoContacto COLLATE Latin1_General_CI_AI, 
         FechaNacimiento, 
-        NroSocioObraSocial COLLATE Latin1_General_CI_AI
+        NroSocioObraSocial COLLATE Latin1_General_CI_AI,
+		0 --Inicializamos el saldo en 0
     FROM #GrupoFamiliarTemporal A
     WHERE NOT EXISTS (  
         SELECT 1 FROM app.Socio B WHERE B.NumeroDeSocio = A.NroSocio COLLATE Latin1_General_CI_AI -- Que no est� registrado previamente
@@ -221,7 +223,7 @@ BEGIN
 		AND t.ValorPorMes = a.Monto AND t.VigenteHasta = a.FechaVigencia
 	);
 
-    -- Insertamos los datos de categor�as de socios evitando duplicados
+    -- Insertamos los datos de categorias de socios evitando duplicados
     INSERT INTO app.CategoriaSocio (nombre)
     SELECT DISTINCT CategoriaSocio COLLATE Latin1_General_CI_AI
     FROM #CategoriasSocio
@@ -243,6 +245,16 @@ BEGIN
 		SELECT 1 FROM app.CostoMembresia cm
 		WHERE cm.fecha = t.vigenteHasta AND cm.Monto = t.ValorCuota AND cm.idCategoriaSocio  = cat.IdCategoriaSocio
 	)
+
+	-- Una vez tenemos las categorias, actualizamos las categorias de los socios ya cargados:
+	UPDATE s
+	SET IdCategoriaSocio =
+		CASE 
+			WHEN DATEDIFF(YEAR, s.FechaNacimiento, GETDATE()) < 18 THEN (SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Menor')
+			WHEN DATEDIFF(YEAR, s.FechaNacimiento, GETDATE()) BETWEEN 18 AND 25 THEN (SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Cadete')
+			ELSE (SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Mayor')
+		END
+	FROM app.Socio s;
 END;
 
 --IMPORTACION DE CLIMAS
