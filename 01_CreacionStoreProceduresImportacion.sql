@@ -47,7 +47,7 @@ BEGIN
 
     ------------------------------------ Procesamiento de los datos temporales ------------------------------------
 
-    INSERT INTO app.Socio (NumeroDeSocio, Documento, Nombre, Apellido, EmailPersonal, Telefono, FechaNacimiento, NumeroObraSocial, Saldo,IdCategoriaSocio)
+    INSERT INTO app.Socio (NumeroDeSocio, Documento, Nombre, Apellido, EmailPersonal, Telefono, FechaNacimiento, NumeroObraSocial, Saldo,Estado,IdCategoriaSocio)
     SELECT 
         NroSocio COLLATE Latin1_General_CI_AI, 
         DNI COLLATE Latin1_General_CI_AI, 
@@ -58,11 +58,12 @@ BEGIN
         FechaNacimiento, 
         NroSocioObraSocial COLLATE Latin1_General_CI_AI,
 		0, --Inicializamos el saldo en 0
+	    'Activo', --Inicializamos estado en activo
 		CASE  
 			WHEN DATEDIFF(YEAR, FechaNacimiento, GETDATE()) < 18 THEN COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Menor'), NULL)  
 			WHEN DATEDIFF(YEAR, FechaNacimiento, GETDATE()) BETWEEN 18 AND 25 THEN COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Cadete'), NULL)  
 			ELSE COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Mayor'), NULL)  
-		END  
+		END
 
     FROM #TemporalRespDePago A
     WHERE Nombre NOT LIKE '%[^a-zA-Z ]%' AND 
@@ -127,7 +128,7 @@ BEGIN
 
     ------------------------------------ Procesamiento de los datos temporales ------------------------------------
     -- Insertamos los socios no responsables (si no est�n registrados)
-    INSERT INTO app.Socio (NumeroDeSocio, Documento, Nombre, Apellido, EmailPersonal, Telefono, FechaNacimiento, NumeroObraSocial,Saldo,IdCategoriaSocio)
+    INSERT INTO app.Socio (NumeroDeSocio, Documento, Nombre, Apellido, EmailPersonal, Telefono, FechaNacimiento, NumeroObraSocial,Saldo,Estado,IdCategoriaSocio)
     SELECT 
         NroSocio COLLATE Latin1_General_CI_AI, 
         DNI COLLATE Latin1_General_CI_AI, 
@@ -138,6 +139,7 @@ BEGIN
         FechaNacimiento, 
         NroSocioObraSocial COLLATE Latin1_General_CI_AI,
 		0, --Inicializamos el saldo en 0
+	    'Activo', --Inicializamos estado en activo
 		CASE  
 			WHEN DATEDIFF(YEAR, FechaNacimiento, GETDATE()) < 18 THEN COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Menor'), NULL)  
 			WHEN DATEDIFF(YEAR, FechaNacimiento, GETDATE()) BETWEEN 18 AND 25 THEN COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Cadete'), NULL)  
