@@ -368,7 +368,7 @@ BEGIN
 
     -- Cargamos la asistencia a clases actualizando la tabla Reserva:
     UPDATE R
-    SET R.Asistio = PE.Asis
+    SET R.Asistencia = PE.Asis
     FROM app.ReservaActividad R
     INNER JOIN #PresentismoExcel PE ON R.NumeroDeSocio = PE.IdSocio COLLATE Latin1_General_CI_AI
     INNER JOIN app.ClaseActividad CA ON R.IdClaseActividad = CA.IdClaseActividad

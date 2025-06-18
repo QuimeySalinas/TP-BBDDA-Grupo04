@@ -11,7 +11,7 @@ Es importanto, ir ejecutando este archivo paso a paso, en el orden en el que fue
 --Continuamos con los responsables de pago:
 EXEC imp.ImportarResponsablesDePago 'C:\Program Files\Microsoft SQL Server\MSSQL16.SQLEXPRESS\MSSQL\ArchivosImportacion\Datos socios.xlsx'
 --Verificamos si se ingresaron datos en los socios
-SELECT * FROM app.Socio WHERE IdGrupoFamiliar IS NULL
+SELECT COUNT(*) [Numero de filas] FROM app.Socio WHERE IdGrupoFamiliar IS NULL
 --Tambien podemos corroborar si se crearon los usuarios y se hashearon las contrasenas
 SELECT * FROM app.Usuario
 
