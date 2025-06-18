@@ -247,7 +247,7 @@ BEGIN
 	INSERT INTO app.Pago(FechaPago, Estado, IdFactura, IdMedioPago)
 	SELECT
 		GETDATE(),
-		'IMPU',
+		'IMP',
 		F.IdFactura,
 		DA.Tipo
 	FROM app.DebitoAutomatico DA 
