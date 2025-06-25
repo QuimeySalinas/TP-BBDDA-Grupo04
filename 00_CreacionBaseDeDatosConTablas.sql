@@ -105,7 +105,6 @@ CREATE TABLE app.Profesor (
 CREATE TABLE app.Socio (
     NumeroDeSocio CHAR(7) PRIMARY KEY,
     Documento VARCHAR(15) NOT NULL,
-    Saldo DECIMAL(10,2),
     Estado VARCHAR(15) CHECK (Estado IN ('Activo','Inactivo')),
     Telefono VARCHAR(20),
     Nombre VARCHAR(50) NOT NULL,
@@ -298,4 +297,13 @@ CREATE TABLE app.Reintegro(
 	Monto DECIMAL (10,2),
 	idClaseActividad INT,
 	FOREIGN KEY (IdClaseActividad) REFERENCES app.ClaseActividad(IdClaseActividad)
+);
+
+CREATE TABLE app.Saldo(
+	IdSaldo INT IDENTITY(1,1),
+	Fecha DATETIME NOT NULL,
+	Monto DECIMAL(10,2),
+	Estado VARCHAR(20),
+	NumeroDeSocio CHAR(7),
+	FOREIGN KEY(NumeroDeSocio) REFERENCES app.Socio(NumeroDeSocio)
 )

@@ -175,12 +175,13 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
-	UPDATE S
-	SET S.Saldo = S.Saldo + I.Monto
+	INSERT INTO app.Saldo(Fecha,Monto,NumeroDeSocio,Estado)
+	SELECT I.Fecha, I.Monto, S.NumeroDeSocio, 'PEN'
 	FROM inserted I 
 	INNER JOIN app.ClaseActividad CA ON I.IdClaseActividad = CA.IdClaseActividad
 	INNER JOIN app.ReservaActividad RA ON CA.IdClaseActividad = RA.IdClaseActividad
 	INNER JOIN app.Socio S ON RA.NumeroDeSocio = S.NumeroDeSocio AND I.Estado = 'PEN'
+	INNER JOIN app.Saldo SA ON SA.NumeroDeSocio = S.NumeroDeSocio
 
 	UPDATE R
 	SET R.Estado = 'FIN'
@@ -207,12 +208,14 @@ CREATE PROCEDURE GenerarCuota
 AS
 BEGIN
 	SET NOCOUNT ON;
+	DECLARE @NumSoc CHAR(7)
+
 	INSERT INTO app.Cuota (FechaEmision, MontoCuota, Recargo, MontoTotal, NumeroDeSocio)
 		SELECT 
 			GETDATE() AS FechaEmision,
-			(CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0) + S.Saldo AS MontoCuota, --Se aplica el descuento si corresponde solo a la membresía. Ademas, se descuenta el monto de pago a cuenta. Por otro lado, tambien se suman las actividades
-			((CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0) + S.Saldo) * 0.1 AS Recargo,
-			(CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0 + S.Saldo) AS MontoTotal,
+			(CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0) + SA.Monto AS MontoCuota, --Se aplica el descuento si corresponde solo a la membresía. Ademas, se descuenta el monto de pago a cuenta. Por otro lado, tambien se suman las actividades
+			((CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0) + SA.Monto) * 0.1 AS Recargo,
+			(CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0 + SA.Monto) AS MontoTotal,
 			S.NumeroDeSocio
 		FROM app.Socio S 
 		INNER JOIN app.CategoriaSocio CS ON S.IdCategoriaSocio = CS.IdCategoriaSocio
@@ -226,6 +229,7 @@ BEGIN
 		FROM app.ReservaActividad RA
 		INNER JOIN app.ClaseActividad CA ON RA.IdClaseActividad = CA.IdClaseActividad
 		INNER JOIN app.ActividadDeportiva AD ON CA.IdActividad = AD.IdActividad
+		INNER JOIN app.Saldo SA ON SA.NumeroDeSocio = S.NumeroDeSocio AND SA.Estado = 'PEN'
 		WHERE RA.Fecha > DATEADD(DAY, -30, GETDATE())
 		GROUP BY RA.NumeroDeSocio
 	) AD ON S.NumeroDeSocio = AD.NumeroDeSocio
@@ -235,9 +239,22 @@ BEGIN
 		FROM app.Cuota 
 		WHERE FechaEmision > DATEADD(DAY, -30, GETDATE())
 	) 
-	AND (CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0) > ABS(S.Saldo)
+	AND (CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0) > ABS(SA.Monto)
 
 END;
+GO
+CREATE TRIGGER ModifEstadoSaldo
+ON app.Cuota
+AFTER INSERT
+AS 
+BEGIN
+	SET NOCOUNT ON;
+	UPDATE S
+	SET S.Estado = 'FIN'
+	FROM inserted i 
+	INNER JOIN app.Saldo S on i.NumeroDeSocio = S.NumeroDeSocio
+	WHERE S.Estado = 'PEN'
+END
 GO
 --SP que se ejecuta post ejecución del SP GenerarCuota que da por pagas las facturas de clientes adheridos al débito automático:
 CREATE PROCEDURE PagoDebitoAutomatico
@@ -272,14 +289,15 @@ BEGIN
 			GETDATE(),
 			@IdSocio,
 			CA.IdClaseActividad,
-			AD.Monto + S.Saldo
+			AD.Monto + SA.Monto
 		FROM
 			app.ClaseActividad CA
 		INNER JOIN
 			app.ActividadDeportiva AD ON CA.IdActividad = AD.IdActividad AND AD.Nombre = @Actividad
 		INNER JOIN
 			app.Socio S ON S.NumeroDeSocio= @IdSocio 
-			AND AD.Monto > ABS(S.Saldo)
+			AND AD.Monto > ABS(SA.Monto)
+		INNER JOIN app.Saldo SA ON SA.NumeroDeSocio = S.NumeroDeSocio AND SA.Estado = 'PEN'
 		WHERE
 			CA.Fecha = @Fecha
 			AND @IdSocio NOT IN		(SELECT C.NumeroDeSocio FROM app.Cuota C
@@ -287,6 +305,19 @@ BEGIN
 									WHERE CM.Estado = 'VEN') --Que el socio no tenga ninguna cuota vencida, si es así, no puede realizar la reserva.
 
 END;
+GO
+CREATE TRIGGER ModifEstadoSaldoRes
+ON app.ReservaActividad
+AFTER INSERT
+AS 
+BEGIN
+	SET NOCOUNT ON;
+	UPDATE S
+	SET S.Estado = 'FIN'
+	FROM inserted i 
+	INNER JOIN app.Saldo S on i.NumeroDeSocio = S.NumeroDeSocio
+	WHERE S.Estado = 'PEN'
+END
 GO
 --SP que permite generar reservas de actividades extras, como pileta verano o alquiler de SUM
 CREATE PROCEDURE GenerarReservaActExtra
@@ -302,14 +333,15 @@ BEGIN
 			GETDATE(),
 			@IdSocio,
 			CA.IdClaseActividad,
-			AE.Monto + S.Saldo
+			AE.Monto + SA.Monto
 		FROM
 			app.ClaseActividad CA
 		INNER JOIN
 			app.ActividadExtra AE ON CA.IdActividadExtra = AE.IdActividadExtra AND AE.Nombre = @Actividad
 		INNER JOIN
 			app.Socio S ON S.NumeroDeSocio = @IdSocio 
-			AND AE.Monto > ABS(S.Saldo)
+			AND AE.Monto > ABS(SA.Monto)
+		INNER JOIN app.Saldo SA ON SA.NumeroDeSocio = S.NumeroDeSocio AND SA.Estado = 'PEN'
 		WHERE
 			CA.Fecha = @Fecha
 			AND @IdSocio NOT IN		(SELECT C.NumeroDeSocio FROM app.Cuota C
