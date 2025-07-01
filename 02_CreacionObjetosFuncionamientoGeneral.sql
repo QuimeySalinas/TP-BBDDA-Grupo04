@@ -229,10 +229,10 @@ BEGIN
 		FROM app.ReservaActividad RA
 		INNER JOIN app.ClaseActividad CA ON RA.IdClaseActividad = CA.IdClaseActividad
 		INNER JOIN app.ActividadDeportiva AD ON CA.IdActividad = AD.IdActividad
-		INNER JOIN app.Saldo SA ON SA.NumeroDeSocio = S.NumeroDeSocio AND SA.Estado = 'PEN'
 		WHERE RA.Fecha > DATEADD(DAY, -30, GETDATE())
 		GROUP BY RA.NumeroDeSocio
 	) AD ON S.NumeroDeSocio = AD.NumeroDeSocio
+	LEFT JOIN app.Saldo SA ON S.NumeroDeSocio = SA.NumeroDeSocio AND SA.Estado = 'PEN'
 	WHERE S.Estado = 'Activo'
 	AND S.NumeroDeSocio NOT IN (
 		SELECT NumeroDeSocio 
@@ -340,8 +340,8 @@ BEGIN
 			app.ActividadExtra AE ON CA.IdActividadExtra = AE.IdActividadExtra AND AE.Nombre = @Actividad
 		INNER JOIN
 			app.Socio S ON S.NumeroDeSocio = @IdSocio 
+		LEFT JOIN app.Saldo SA ON S.NumeroDeSocio = SA.NumeroDeSocio AND SA.Estado = 'PEN'
 			AND AE.Monto > ABS(SA.Monto)
-		INNER JOIN app.Saldo SA ON SA.NumeroDeSocio = S.NumeroDeSocio AND SA.Estado = 'PEN'
 		WHERE
 			CA.Fecha = @Fecha
 			AND @IdSocio NOT IN		(SELECT C.NumeroDeSocio FROM app.Cuota C
