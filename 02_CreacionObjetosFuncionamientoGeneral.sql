@@ -296,8 +296,8 @@ BEGIN
 			app.ActividadDeportiva AD ON CA.IdActividad = AD.IdActividad AND AD.Nombre = @Actividad
 		INNER JOIN
 			app.Socio S ON S.NumeroDeSocio= @IdSocio 
-			AND AD.Monto > ABS(SA.Monto)
 		INNER JOIN app.Saldo SA ON SA.NumeroDeSocio = S.NumeroDeSocio AND SA.Estado = 'PEN'
+			AND AD.Monto > ABS(SA.Monto)
 		WHERE
 			CA.Fecha = @Fecha
 			AND @IdSocio NOT IN		(SELECT C.NumeroDeSocio FROM app.Cuota C
