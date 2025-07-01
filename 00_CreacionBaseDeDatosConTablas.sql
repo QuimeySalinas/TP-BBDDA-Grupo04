@@ -125,6 +125,8 @@ CREATE TABLE app.Socio (
     FOREIGN KEY (IdDebitoAutomatico) REFERENCES app.DebitoAutomatico(IdDebitoAutomatico)
 );
 
+ALTER TABLE app.Socio ADD Saldo Decimal(10,2) NULL;
+
 ALTER TABLE app.GrupoFamiliar
 ADD CONSTRAINT FK_GrupoFamiliarSocioResponsable
 FOREIGN KEY (NumeroDeSocioResponsable) REFERENCES app.Socio(NumeroDeSocio);
