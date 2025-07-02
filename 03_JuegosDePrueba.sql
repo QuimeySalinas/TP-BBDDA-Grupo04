@@ -30,9 +30,6 @@ SELECT * FROM app.CategoriaSocio
 SELECT * FROM app.CostoMembresia
 SELECT * FROM app.ActividadDeportiva
 
---Ahora procedemos a importar las actividades extras
-
-
 --Importamos los pagos realizados por los socios
 --Pero antes.. hay que generar cuotas
 INSERT INTO app.MedioPago (Nombre, Descripcion) VALUES
@@ -168,6 +165,7 @@ EXEC RevisionFacturaVencida;
 --Genera los registros en la tabla cuotamorosa basandose en las facturas que se marcaron como vencidas.
 EXEC MonitorDeDeuda;
 
+SELECT * FROM app.CuotaMorosa
 --Este SP genera devolución para un pago X y genera registros en la tabla devolución
 --Debe ejecutarse post importacion de los pagos.
 EXEC GenerarDevolucion @idPago = '10'
@@ -207,6 +205,11 @@ SELECT * FROM app.Cuota WHERE NumeroDeSocio IN ('SN-4118','SN-4116');
 --Testeamos todas las cuotas generadas el dia de la fecha.
 SELECT * FROM app.Cuota WHERE FechaEmision = CAST(GETDATE() AS DATE) 
 
+--SELECT * FROM app.Inscripcion
+--INSERT INTO app.Socio(NumeroDeSocio,Documento,Nombre,Apellido,FechaNacimiento,Estado)
+--VALUES ('SN-9000', '40000000', 'Quimey', 'Salinas', '20030505', 'Activo')
+--SELECT * FROM app.Cuota WHERE NumeroDeSocio = 'SN-9000'
+
 --Este SP da por pagas las facturas de los clientes con pago automatico activo. Por ejemplo, generamos un debito automático del socio  SN-4004
 INSERT INTO app.DebitoAutomatico (FechaVigencia, FechaFin, Tipo, NumeroTarjeta)
 VALUES ('2025-01-01', '2026-01-01', 'Tarjeta', '1234');
@@ -240,4 +243,19 @@ SELECT * FROM app.ReservaActividad WHERE NumeroDeSocio = 'SN-4012';
 EXEC GenerarReintegroPorLluvia;
 
 SELECT * FROM app.Reintegro;
+
+
+
+SELECT * FROM app.Descuento
+
+
+
+--
+INSERT INTO app.Pago(FechaPago,Estado,IdFactura,IdMedioPago)
+VALUES(GETDATE(),'IMP',1433,5)
+
+SELECT * FROM app.pago WHERE IdFactura = 1433
+SELECT * FROM app.Cuota Where 
+
+SELECT * FROM app.Factura WHERE IdCuota = 1584
 

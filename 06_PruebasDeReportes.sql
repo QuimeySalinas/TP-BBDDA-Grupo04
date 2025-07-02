@@ -10,6 +10,8 @@ SELECT FechaEmision, 'VEN', IdCuota
 FROM app.Cuota
 WHERE FechaEmision < GETDATE();
 
+SELECT * FROM app.CuotaMorosa
+
 EXEC rep.MorososRecurrentes '2024-01-01', '2025-12-31'
 --REPORTE 2
 --Con lo ya cargado previamente en los juegos de prueba, se puede visualizar el reporte

@@ -144,7 +144,7 @@ BEGIN
 		GROUP BY 
 			R.NumeroDeSocio, CA.IdActividad
 	),--Devuelve las reservas generadas por los socios, sin discriminar aún por presentismo.
-	SociosConPresente AS (
+	SociosConPresente AS ( -- CAMBIAR A SOCIOS POR AUSENTE
 		SELECT 
 			R.NumeroDeSocio,
 			CA.IdActividad
