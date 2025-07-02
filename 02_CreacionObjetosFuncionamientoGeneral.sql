@@ -257,7 +257,7 @@ BEGIN
 END
 GO
 --SP que se ejecuta post ejecución del SP GenerarCuota que da por pagas las facturas de clientes adheridos al débito automático:
-CREATE PROCEDURE PagoDebitoAutomatico
+CREATE OR ALTER PROCEDURE PagoDebitoAutomatico
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -266,17 +266,18 @@ BEGIN
 		GETDATE(),
 		'IMP',
 		F.IdFactura,
-		DA.Tipo
+		MP.IdMedioPago
 	FROM app.DebitoAutomatico DA 
 	INNER JOIN app.Socio S ON DA.IdDebitoAutomatico = S.IdDebitoAutomatico
 	INNER JOIN app.Cuota C ON S.NumeroDeSocio = C.NumeroDeSocio
 	INNER JOIN app.Factura F ON C.IdCuota = F.IdCuota
+	INNER JOIN app.MedioPago MP ON MP.Descripcion = DA.Tipo
 	WHERE F.Estado = 'PEN';
 	
 END;
 GO
 --SP para generar reservas de actividades deportivas
-CREATE PROCEDURE GenerarReservaActDeportiva
+CREATE OR ALTER PROCEDURE GenerarReservaActDeportiva
 @IdSocio CHAR(7),
 @Actividad CHAR(20),
 @Fecha DATETIME
@@ -289,15 +290,14 @@ BEGIN
 			GETDATE(),
 			@IdSocio,
 			CA.IdClaseActividad,
-			AD.Monto + SA.Monto
+			AD.Monto + ISNULL(SA.Monto,0)
 		FROM
 			app.ClaseActividad CA
 		INNER JOIN
 			app.ActividadDeportiva AD ON CA.IdActividad = AD.IdActividad AND AD.Nombre = @Actividad
 		INNER JOIN
 			app.Socio S ON S.NumeroDeSocio= @IdSocio 
-		INNER JOIN app.Saldo SA ON SA.NumeroDeSocio = S.NumeroDeSocio AND SA.Estado = 'PEN'
-			AND AD.Monto > ABS(SA.Monto)
+		LEFT JOIN app.Saldo SA ON SA.NumeroDeSocio = S.NumeroDeSocio AND SA.Estado = 'PEN'
 		WHERE
 			CA.Fecha = @Fecha
 			AND @IdSocio NOT IN		(SELECT C.NumeroDeSocio FROM app.Cuota C

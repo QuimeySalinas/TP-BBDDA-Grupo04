@@ -30,6 +30,9 @@ SELECT * FROM app.CategoriaSocio
 SELECT * FROM app.CostoMembresia
 SELECT * FROM app.ActividadDeportiva
 
+--Ahora procedemos a importar las actividades extras
+
+
 --Importamos los pagos realizados por los socios
 --Pero antes.. hay que generar cuotas
 INSERT INTO app.MedioPago (Nombre, Descripcion) VALUES
@@ -202,7 +205,7 @@ EXEC GenerarCuota
 --Revisamos que genere registros
 SELECT * FROM app.Cuota WHERE NumeroDeSocio IN ('SN-4118','SN-4116');
 --Testeamos todas las cuotas generadas el dia de la fecha.
-SELECT * FROM app.Cuota WHERE FechaEmision = CAST(GETDATE() AS DATE)
+SELECT * FROM app.Cuota WHERE FechaEmision = CAST(GETDATE() AS DATE) 
 
 --Este SP da por pagas las facturas de los clientes con pago automatico activo. Por ejemplo, generamos un debito automático del socio  SN-4004
 INSERT INTO app.DebitoAutomatico (FechaVigencia, FechaFin, Tipo, NumeroTarjeta)
@@ -214,9 +217,15 @@ FROM app.DebitoAutomatico DA
 WHERE NumeroTarjeta = '1234'
 AND NumeroDeSocio = 'SN-4004';
 
-EXEC PagoDebitoAutomático
+EXEC PagoDebitoAutomatico
+SELECT * FROM app.Pago ORDER BY FechaPago DESC
 
 --Este SP genera una reserva de actividad. Debe ejecutarse una vez importados los socios y las clase actividades.
+--Verificamos que exista la clase previamente
+SELECT * FROM app.ClaseActividad WHERE IdActividad = 1 AND Fecha = '2025-03-03 00:00'
+--Seteamos todas las cuotas morosas como pagadas (porque si se posee una cuota morosa NO se realizan las reservas)
+UPDATE CM SET CM.Estado = 'PAG' FROM app.CuotaMorosa CM INNER JOIN app.Cuota C ON CM.IdCuota = C.IdCuota WHERE C.NumeroDeSocio = 'SN-4012'
+
 EXEC GenerarReservaActDeportiva 	@IdSocio = 'SN-4012', 	@Actividad = 'Futsal', 	@Fecha = '2025-03-03 00:00';
 
 SELECT * FROM app.ReservaActividad WHERE NumeroDeSocio = 'SN-4012';
