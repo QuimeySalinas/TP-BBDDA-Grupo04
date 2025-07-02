@@ -201,6 +201,8 @@ EXEC GenerarCuota
 
 --Revisamos que genere registros
 SELECT * FROM app.Cuota WHERE NumeroDeSocio IN ('SN-4118','SN-4116');
+--Testeamos todas las cuotas generadas el dia de la fecha.
+SELECT * FROM app.Cuota WHERE FechaEmision = CAST(GETDATE() AS DATE)
 
 --Este SP da por pagas las facturas de los clientes con pago automatico activo. Por ejemplo, generamos un debito automático del socio  SN-4004
 INSERT INTO app.DebitoAutomatico (FechaVigencia, FechaFin, Tipo, NumeroTarjeta)

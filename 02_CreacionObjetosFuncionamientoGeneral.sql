@@ -204,7 +204,7 @@ BEGIN
 END
 GO
 --SP Que genera las cuotas siempre que el socio cumpla un mes mas
-CREATE PROCEDURE GenerarCuota
+CREATE OR ALTER PROCEDURE GenerarCuota
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -213,9 +213,9 @@ BEGIN
 	INSERT INTO app.Cuota (FechaEmision, MontoCuota, Recargo, MontoTotal, NumeroDeSocio)
 		SELECT 
 			GETDATE() AS FechaEmision,
-			(CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0) + SA.Monto AS MontoCuota, --Se aplica el descuento si corresponde solo a la membresía. Ademas, se descuenta el monto de pago a cuenta. Por otro lado, tambien se suman las actividades
-			((CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0) + SA.Monto) * 0.1 AS Recargo,
-			(CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0 + SA.Monto) AS MontoTotal,
+			(CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0) + ISNULL(SA.Monto,0) AS MontoCuota, --Se aplica el descuento si corresponde solo a la membresía. Ademas, se descuenta el monto de pago a cuenta. Por otro lado, tambien se suman las actividades
+			((CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0) + ISNULL(SA.Monto,0)) * 0.1 AS Recargo,
+			(CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0 + ISNULL(SA.Monto,0)) AS MontoTotal,
 			S.NumeroDeSocio
 		FROM app.Socio S 
 		INNER JOIN app.CategoriaSocio CS ON S.IdCategoriaSocio = CS.IdCategoriaSocio
@@ -239,11 +239,11 @@ BEGIN
 		FROM app.Cuota 
 		WHERE FechaEmision > DATEADD(DAY, -30, GETDATE())
 	) 
-	AND (CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0) > ABS(SA.Monto)
+	AND (CM.Monto - (CM.Monto * ISNULL(D.Porcentaje, 0)/100)) + ISNULL(AD.MontoActividades, 0) > ABS(ISNULL(SA.Monto, 0))
 
 END;
 GO
-CREATE TRIGGER ModifEstadoSaldo
+CREATE OR ALTER TRIGGER ModifEstadoSaldo
 ON app.Cuota
 AFTER INSERT
 AS 
