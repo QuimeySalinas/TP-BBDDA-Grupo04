@@ -147,7 +147,7 @@ END;
 
 GO
 --Trigger que genera una cuota cada vez que haya una inscripcion de un nuevo socio.
-CREATE TRIGGER trg_PrimerCuota
+CREATE OR ALTER TRIGGER trg_PrimeraCuota
 ON app.Socio
 AFTER INSERT
 AS
@@ -163,7 +163,8 @@ BEGIN
 	i.NumeroDeSocio
 	FROM inserted i
 	INNER JOIN app.CategoriaSocio CS ON i.IdCategoriaSocio = CS.IdCategoriaSocio
-	INNER JOIN app.CostoMembresia CM ON CS.iDCategoriaSocio = CM.iDCategoriaSocio
+	INNER JOIN app.CostoMembresia CM ON CS.iDCategoriaSocio = CM.iDCategoriaSocio 
+	AND  CM.fecha = (SELECT MAX(fecha) FROM app.CostoMembresia WHERE IdCategoriaSocio = CS.IdCategoriaSocio GROUP BY IdCategoriaSocio) --Que agarre la fecha mas alta
 	LEFT JOIN app.Descuento D ON i.NumeroDeSocio = D.NumeroDeSocio AND D.FechaVigencia <= GETDATE()
 END;
 GO
