@@ -143,8 +143,11 @@ CREATE TABLE app.Inscripcion (
     IdInscripcion INT IDENTITY(1,1) PRIMARY KEY,
     TipoInscripcion VARCHAR(20),
     Fecha DATE,
-    Estado VARCHAR(20)
+    Estado VARCHAR(20),
+	NumeroDeSocio CHAR(7),
+	FOREIGN KEY(NumeroDeSocio) REFERENCES app.Socio(NumeroDeSocio)
 );
+
 
 CREATE TABLE app.ClaseActividad (
     IdClaseActividad INT IDENTITY(1,1) PRIMARY KEY,

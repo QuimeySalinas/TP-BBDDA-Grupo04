@@ -1,5 +1,6 @@
 USE Com2900G04;
 --agregamos un trigger en el cual convertimos en hash las contrasenas de los usuarios:
+
 GO
 CREATE OR ALTER TRIGGER app.HashContrasena
 ON app.Usuario
@@ -16,7 +17,24 @@ BEGIN
 END;
 --Trigger para Generar un usuario default para cuando se cree un socio nuevo
 GO
-CREATE OR ALTER TRIGGER  tgr_GenerarUsuario
+--Trigger para generar una inscripcion en cada socio nuevo:
+CREATE OR ALTER TRIGGER app.tgr_GenerarInscripcion
+ON app.Socio
+AFTER INSERT
+AS
+BEGIN
+	SET NOCOUNT ON;
+
+	INSERT INTO app.Inscripcion(Fecha,Estado,NumeroDeSocio)
+	SELECT
+		CAST(GETDATE() AS DATE),
+		'ACT', --Puede ser Activo, Pendiente o Cancelada
+		i.NumeroDeSocio
+	FROM inserted i;
+END;
+
+GO
+CREATE OR ALTER TRIGGER  app.tgr_GenerarUsuario
 ON app.Socio
 AFTER INSERT
 AS
@@ -34,10 +52,10 @@ BEGIN
 		CONCAT(i.NumeroDeSocio, i.Documento), 
 		i.NumeroDeSocio
 	FROM inserted i;
-END
+END;
 GO
 --Se crea un trigger que generará una factura cada vez que se genere una cuota
-CREATE TRIGGER trg_GenerarFacturaPorCuota
+CREATE OR ALTER TRIGGER app.trg_GenerarFacturaPorCuota
 ON app.Cuota
 AFTER INSERT
 AS
@@ -56,7 +74,7 @@ BEGIN
 END;
 GO
 --Creamos un trigger que va a cargar la tabla ItemFactura cada vez que se genera una factura.
-CREATE TRIGGER CargaItemFactura
+CREATE OR ALTER TRIGGER app.CargaItemFactura
 ON app.Factura
 AFTER INSERT
 AS
@@ -98,7 +116,7 @@ BEGIN
 END
 GO
 --Trigger que genera una factura por cada actividad generada
-CREATE TRIGGER trg_GenerarFacturaPorReserva
+CREATE OR ALTER TRIGGER app.trg_GenerarFacturaPorReserva
 ON app.ReservaActividad
 AFTER INSERT 
 AS
@@ -123,7 +141,7 @@ BEGIN
 END;
 GO
 --Se crea un trigger que modifica el estado de la factura siempre que entre un pago
-CREATE TRIGGER trg_ModificarEstadoFactura
+CREATE OR ALTER TRIGGER app.trg_ModificarEstadoFactura
 ON app.Pago
 AFTER INSERT
 AS
@@ -147,7 +165,7 @@ END;
 
 GO
 --Trigger que genera una cuota cada vez que haya una inscripcion de un nuevo socio.
-CREATE OR ALTER TRIGGER trg_PrimeraCuota
+CREATE OR ALTER TRIGGER app.trg_PrimeraCuota
 ON app.Socio
 AFTER INSERT
 AS
@@ -169,7 +187,7 @@ BEGIN
 END;
 GO
 --Trigger que modifica el campo Saldo del cliente una vez que se genera un reintegro
-CREATE TRIGGER trg_ModificarSaldoACuenta
+CREATE OR ALTER TRIGGER app.trg_ModificarSaldoACuenta
 ON app.Reintegro
 AFTER INSERT 
 AS
@@ -192,7 +210,7 @@ BEGIN
 END;
 GO
 --Trigger que modifica el estado del pago cuando se genere una devolucion:
-CREATE TRIGGER ModifEstadoPago
+CREATE OR ALTER TRIGGER app.ModifEstadoPago
 ON app.Devolucion
 AFTER INSERT
 AS 
@@ -244,7 +262,7 @@ BEGIN
 
 END;
 GO
-CREATE OR ALTER TRIGGER ModifEstadoSaldo
+CREATE OR ALTER TRIGGER app.ModifEstadoSaldo
 ON app.Cuota
 AFTER INSERT
 AS 
@@ -307,7 +325,7 @@ BEGIN
 
 END;
 GO
-CREATE TRIGGER ModifEstadoSaldoRes
+CREATE OR ALTER TRIGGER app.ModifEstadoSaldoRes
 ON app.ReservaActividad
 AFTER INSERT
 AS 
@@ -321,7 +339,7 @@ BEGIN
 END
 GO
 --SP que permite generar reservas de actividades extras, como pileta verano o alquiler de SUM
-CREATE PROCEDURE GenerarReservaActExtra
+CREATE OR ALTER PROCEDURE GenerarReservaActExtra
 @IdSocio CHAR(7),
 @Actividad CHAR(20),
 @Fecha DATETIME
@@ -352,7 +370,7 @@ BEGIN
 END;
 GO
 --SP que genera el reintegro en caso de que haya llovido durante la jornada: Se ejecuta una vez al día:
-CREATE PROCEDURE GenerarReintegroPorLluvia
+CREATE OR ALTER PROCEDURE GenerarReintegroPorLluvia
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -377,7 +395,7 @@ BEGIN
 END;
 GO
 --Creamos un SP que genera un devolución en el caso de que se requiera:
-CREATE PROCEDURE GenerarDevolucion
+CREATE OR ALTER PROCEDURE GenerarDevolucion
 @idPago INT
 AS
 BEGIN
@@ -395,7 +413,7 @@ END;
 GO
 GO
 --SP Que procesa las devoluciones, generando Notas de Crédito. Se ejecuta despues de GenerarDevolucion:
-CREATE PROCEDURE ProcesarDevolucion
+CREATE OR ALTER PROCEDURE ProcesarDevolucion
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -423,7 +441,7 @@ END;
 GO
 --SP que se ejecuta una vez al día y monitorea el estado de la cuota. En caso de que este vencida, modifica el campo MontoTotal para sumarle el recargo
 --Y actualiza el estado de la factura.
-CREATE PROCEDURE RevisionFacturaVencida
+CREATE OR ALTER PROCEDURE RevisionFacturaVencida
 AS
 BEGIN
 	--Actualizamos el precio de la Cuota y le sumamos el Recargo.
@@ -442,7 +460,7 @@ BEGIN
 END;
 GO
 --SP que carga la tabla DeudaMorosa en caso de que haya alguna factura vencida:
-CREATE PROCEDURE MonitorDeDeuda 
+CREATE OR ALTER PROCEDURE MonitorDeDeuda 
 AS  
 BEGIN  
     INSERT INTO app.CuotaMorosa (Fecha, IdCuota)

@@ -205,10 +205,6 @@ SELECT * FROM app.Cuota WHERE NumeroDeSocio IN ('SN-4118','SN-4116');
 --Testeamos todas las cuotas generadas el dia de la fecha.
 SELECT * FROM app.Cuota WHERE FechaEmision = CAST(GETDATE() AS DATE) 
 
---SELECT * FROM app.Inscripcion
---INSERT INTO app.Socio(NumeroDeSocio,Documento,Nombre,Apellido,FechaNacimiento,Estado)
---VALUES ('SN-9000', '40000000', 'Quimey', 'Salinas', '20030505', 'Activo')
---SELECT * FROM app.Cuota WHERE NumeroDeSocio = 'SN-9000'
 
 --Este SP da por pagas las facturas de los clientes con pago automatico activo. Por ejemplo, generamos un debito automático del socio  SN-4004
 INSERT INTO app.DebitoAutomatico (FechaVigencia, FechaFin, Tipo, NumeroTarjeta)
@@ -244,18 +240,21 @@ EXEC GenerarReintegroPorLluvia;
 
 SELECT * FROM app.Reintegro;
 
-
-
 SELECT * FROM app.Descuento
 
+--Prueba de inscripcion de un socio nuevo
+SELECT * FROM app.Inscripcion
+INSERT INTO app.Socio(NumeroDeSocio,Documento,Nombre,Apellido,FechaNacimiento,Estado)
+VALUES ('SN-9002', '40000001', 'Quimey', 'Salinas', '20030505', 'Activo')
+SELECT * FROM app.Cuota WHERE NumeroDeSocio = 'SN-9002'
 
 
---
+--Prueba de pago de una cuota:
 INSERT INTO app.Pago(FechaPago,Estado,IdFactura,IdMedioPago)
 VALUES(GETDATE(),'IMP',1433,5)
 
 SELECT * FROM app.pago WHERE IdFactura = 1433
-SELECT * FROM app.Cuota Where 
+SELECT * FROM app.Cuota  
 
 SELECT * FROM app.Factura WHERE IdCuota = 1584
 
