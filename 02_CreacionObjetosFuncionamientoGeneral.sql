@@ -242,7 +242,7 @@ BEGIN
 		INNER JOIN app.CostoMembresia CM ON CS.IdCategoriaSocio = CM.IdCategoriaSocio
 		AND  CM.fecha = (SELECT MAX(fecha) FROM app.CostoMembresia WHERE IdCategoriaSocio = CS.IdCategoriaSocio AND fecha <= GETDATE() GROUP BY IdCategoriaSocio) --Que agarre la fecha mas alta
 		LEFT JOIN app.Descuento D ON S.NumeroDeSocio = D.NumeroDeSocio 
-		AND D.FechaVigencia = (SELECT MAX(FechaVigencia) FROM app.Descuento WHERE NumeroDeSocio = D.NumeroDeSocio AND FechaVigencia <= GETDATE() GROUP BY NumeroDeSocio
+		AND D.FechaVigencia = (SELECT MAX(FechaVigencia) FROM app.Descuento WHERE NumeroDeSocio = D.NumeroDeSocio AND FechaVigencia <= GETDATE() GROUP BY NumeroDeSocio)
 		LEFT JOIN (
 		-- Subconsulta que trae la suma de actividades distintas por socio. Ejemplo, actividad 1 tiene x reservas, la actividad vale x entonces lo trae. Otra actividad 2 tiene x reservas, esa actividad vale y y suma y+x
 		SELECT 
