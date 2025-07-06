@@ -480,6 +480,104 @@ BEGIN
 		WHERE F.Estado = 'VEN'
 		AND NOT EXISTS(SELECT 1 FROM app.CuotaMorosa WHERE IdCuota = F.IdCuota)
 END;
+GO
+CREATE OR ALTER PROCEDURE GenerarDescuentoSocio
+@NroSocio char(7),
+@Porcentaje DECIMAL(5,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+	--Verificamos si tiene descuento en el ultimo mes
+	--Si tiene descuento, le sumamos el que se quiere agregar
+	--Si no tiene, se crea un nuevo descuento para el mismo
+	IF (
+		SELECT MAX(FechaVigencia)
+		FROM app.Descuento  
+		WHERE NumeroDeSocio = @NroSocio AND FechaVigencia <= GETDATE()
+		) >= DATEADD(DAY, -30, GETDATE())
+	BEGIN
+	--Actualizamos el descuento del mes vigente
+		UPDATE app.Descuento
+		SET Porcentaje = Porcentaje + @Porcentaje
+		WHERE NumeroDeSocio = @NroSocio AND FechaVigencia BETWEEN DATEADD(DAY, -30, GETDATE()) AND GETDATE()
+		AND Porcentaje + @Porcentaje <= 100 
+	END
+	ELSE
+	BEGIN
+	--Insertamos un descuento desde 0
+		INSERT INTO app.Descuento(Tipo, Porcentaje,FechaVigencia,NumeroDeSocio)
+		VALUES('Mensual',@Porcentaje,GETDATE(),@NroSocio)
+	END
+
+END;
+GO
+CREATE OR ALTER PROCEDURE GenerarDescuentoMensual
+@PorcentajePorGrupoFamiliar DECIMAL(5,2),
+@PorcentajePorActividadesMultiples DECIMAL(5,2)
+AS
+BEGIN
+	SET NOCOUNT ON;
+	--Insertamos los descuentos de grupos familiares
+	INSERT INTO app.Descuento
+	SELECT
+		'Mensual',
+		@PorcentajePorGrupoFamiliar,
+		GETDATE(),
+		NumeroDeSocio
+	FROM app.Socio
+	WHERE IdGrupoFamiliar IS NOT NULL --Todos los no responsables 
+	OR NumeroDeSocio IN (SELECT NumeroDeSocioResponsable FROM app.GrupoFamiliar WHERE Estado <> 'Inactivo')
+	;
+	--Actualizamos los descuentos con los porcentajes a los socios que hacen actividades multiples
+	WITH ActividadesPorSocio AS (
+		SELECT 
+			NumeroDeSocio, 
+			IdClaseActividad
+		FROM app.ReservaActividad
+		WHERE Fecha BETWEEN DATEADD(DAY, -30, GETDATE()) AND GETDATE()
+		GROUP BY NumeroDeSocio, IdClaseActividad
+	),
+	SociosConActividadesDistintas AS (
+		SELECT 
+			NumeroDeSocio
+		FROM ActividadesPorSocio
+		GROUP BY NumeroDeSocio
+		HAVING COUNT(DISTINCT IdClaseActividad) > 1
+	)
+
+	UPDATE D
+	SET Porcentaje = Porcentaje + @PorcentajePorActividadesMultiples
+	FROM app.Descuento D
+	WHERE NumeroDeSocio IN(SELECT NumeroDeSocio FROM SociosConActividadesDistintas);
+	--Por ultimo, Creamos los registros de socios que realizan varias actividades y que todavia no tenian dto
+	WITH ActividadesPorSocio AS (
+		SELECT 
+			NumeroDeSocio, 
+			IdClaseActividad
+		FROM app.ReservaActividad
+		WHERE Fecha BETWEEN DATEADD(DAY, -30, GETDATE()) AND GETDATE()
+		GROUP BY NumeroDeSocio, IdClaseActividad
+	),
+	SociosConActividadesDistintas AS (
+		SELECT 
+			NumeroDeSocio
+		FROM ActividadesPorSocio
+		GROUP BY NumeroDeSocio
+		HAVING COUNT(DISTINCT IdClaseActividad) > 1
+	)
+	INSERT INTO app.Descuento (Tipo,NumeroDeSocio, FechaVigencia, Porcentaje)
+	SELECT
+		'Mensual',
+		SA.NumeroDeSocio,
+		GETDATE(),
+		@PorcentajePorActividadesMultiples
+	FROM SociosConActividadesDistintas SA
+	WHERE NOT EXISTS (
+		SELECT 1 
+		FROM app.Descuento D 
+		WHERE D.NumeroDeSocio = SA.NumeroDeSocio
+	)
+END
 
 GO
 CREATE OR ALTER PROCEDURE EstablecerParentesco
@@ -502,12 +600,23 @@ BEGIN
 					@NroSocioResp
 				FROM app.Socio
 				WHERE NumeroDeSocio = @NroSocioResp
+				--Si no tenia grupo, tampoco tenia el descuento de grupo familiar, entonces se lo generamos
+				--EXEC GenerarDescuentoSocio @NroSocioResp, 15
 			END;
 
-			--Exista o no el grupo previamente, se debe establecer el parentesco, por ende:
+			/*--Antes de establecer el parentesco, verificamos si tenia uno previamente 
+			IF (SELECT IdGrupoFamiliar FROM app.Socio WHERE NumeroDeSocio = @NroSocio) = NULL
+			BEGIN
+				--Si no tenia, generamos el descuento por 
+				--EXEC GenerarDescuentoSocio @NroSocio, 15
+			END
+			*/
+			--Establecemos el parentesco:
 			UPDATE app.Socio
 			SET IdGrupoFamiliar = (SELECT TOP 1 IdGrupoFamiliar FROM app.GrupoFamiliar WHERE NumeroDeSocioResponsable = @NroSocioResp ORDER BY FechaCreacion DESC)
 			WHERE NumeroDeSocio = @NroSocio
+			--Generamos el descuento para el socio Menor
+			
 		END
 		ELSE
 		BEGIN

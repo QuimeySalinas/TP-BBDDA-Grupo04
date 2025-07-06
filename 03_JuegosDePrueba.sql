@@ -307,3 +307,25 @@ EXEC EstablecerParentesco 'SN-9502', 'SN-9500'
 
 SELECT IdGrupoFamiliar FROM app.Socio WHERE NumeroDeSocio = 'SN-9502'
 
+
+--Prueba de descuento
+--Generamos los descuentos generales mensuales
+--Primer parametro: Dto por Grupo Familiar. Segundo parametro: Dto por mas de 1 actividad
+EXEC GenerarDescuentoMensual 15,10
+SELECT * FROM app.Descuento
+--DELETE FROM app.Descuento
+--Si se quiere generar un descuento particular:
+--Insertamos un registro mas al mismo grupo familiar
+	DECLARE @FechaNac DATE = '20100505'
+	INSERT INTO app.Socio(NumeroDeSocio,Documento,Nombre,Apellido,FechaNacimiento,Estado,IdCategoriaSocio)
+	VALUES ('SN-9504', '40000001', 'Quimey', 'Salinas', @FechaNac, 'Activo',
+			CASE  
+				WHEN DATEDIFF(YEAR, @FechaNac, GETDATE()) < 18 THEN COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Menor'), NULL)  
+				WHEN DATEDIFF(YEAR, @FechaNac, GETDATE()) BETWEEN 18 AND 25 THEN COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Cadete'), NULL)  
+				ELSE COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Mayor'), NULL)  
+			END )
+	EXEC EstablecerParentesco 'SN-9504', 'SN-9500'
+	
+SELECT * FROM app.Descuento WHERE NumeroDeSocio = 'SN-9504'
+--No tiene descuento ya que se unio post generacion de descuentos mensuales, por ende
+EXEC GenerarDescuentoSocio 'SN-9504', 15
