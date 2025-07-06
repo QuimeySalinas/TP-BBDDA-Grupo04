@@ -1,4 +1,4 @@
-# TP-BBDDA-Grupo06
+# TP-BBDDA-Grupo04
 
 Integrantes:
 Valencia Ivan, Nombre en github: valenciaivan.
