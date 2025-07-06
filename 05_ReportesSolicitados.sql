@@ -102,27 +102,51 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
-		SELECT 
-			CS.Nombre AS CategoriaSocio, 
-			AD.Nombre AS ActividadDeportiva,
-			COUNT(*) AS CantInasistencias
+		WITH SociosIntermitentes AS (
+			SELECT 
+				R.NumeroDeSocio,
+				CA.IdActividad
+			FROM 
+				app.ReservaActividad R
+			INNER JOIN 
+				app.ClaseActividad CA ON R.IdClaseActividad = CA.IdClaseActividad
+			GROUP BY 
+				R.NumeroDeSocio, CA.IdActividad
+			HAVING 
+				SUM(CASE WHEN R.Asistencia IN ('A', 'J') THEN 1 ELSE 0 END) > 0 AND
+				SUM(CASE WHEN R.Asistencia = 'P' THEN 1 ELSE 0 END) > 0
+		),--Socios que asistieron al menos a una clase de la actividad y faltaron al menos a una.
+		InasistenciasFiltradas AS (
+			SELECT  
+				S.NumeroDeSocio,
+				CS.Nombre AS CategoriaSocio,  
+				AD.Nombre AS ActividadDeportiva
+			FROM 
+				app.ReservaActividad R
+			INNER JOIN 
+				app.Socio S ON R.NumeroDeSocio = S.NumeroDeSocio
+			INNER JOIN 
+				app.CategoriaSocio CS ON S.IdCategoriaSocio = CS.IdCategoriaSocio
+			INNER JOIN 
+				app.ClaseActividad CA ON R.IdClaseActividad = CA.IdClaseActividad
+			INNER JOIN 
+				app.ActividadDeportiva AD ON CA.IdActividad = AD.IdActividad
+			INNER JOIN 
+				SociosIntermitentes SI ON SI.NumeroDeSocio = R.NumeroDeSocio AND SI.IdActividad = CA.IdActividad --Traemos solo las inasistencias de la consulta de arriba.
+			WHERE 
+				R.Asistencia IN ('A','J')
+		)--Reservas con inasistencias.
+		SELECT  
+			CategoriaSocio,
+			ActividadDeportiva,
+			COUNT(*) AS CantInasistencias, --Contamos la cantidad de inasistencias que tiene una actividad
+			COUNT(DISTINCT NumeroDeSocio) AS CantSociosIntermitentes --Contamos la cantidad de socios distintos que faltaron a esa actividad.
 		FROM 
-			app.ReservaActividad R
-		INNER JOIN 
-			app.Socio S ON R.NumeroDeSocio = S.NumeroDeSocio
-		INNER JOIN 
-			app.CategoriaSocio CS ON S.IdCategoriaSocio = CS.IdCategoriaSocio
-		INNER JOIN 
-			app.ClaseActividad CA ON R.IdclaseActividad = CA.IdclaseActividad
-		INNER JOIN 
-			app.ActividadDeportiva AD ON CA.IdActividad = AD.IdActividad
-		WHERE 
-			Asistencia IN ('A','J')--Que solo devuelva las A: Ausente y J: Ausente Justificado.
-		GROUP BY 
-			CS.Nombre, AD.Nombre
-		ORDER BY 
-			CantInasistencias DESC
-
+			InasistenciasFiltradas
+		GROUP BY  
+			CategoriaSocio, ActividadDeportiva
+		ORDER BY  
+			CantInasistencias DESC;
 END
 
 --REPORTE 4: Reporte que contenga a los socios que no han asistido a alguna clase de la actividad que 
@@ -133,18 +157,7 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
-		WITH SociosConReservas AS (
-		SELECT 
-			R.NumeroDeSocio,
-			CA.IdActividad
-		FROM 
-			app.ReservaActividad R
-		INNER JOIN 
-			app.ClaseActividad CA ON R.IdClaseActividad = CA.IdClaseActividad
-		GROUP BY 
-			R.NumeroDeSocio, CA.IdActividad
-	),--Devuelve las reservas generadas por los socios, sin discriminar aún por presentismo.
-	SociosConPresente AS ( -- CAMBIAR A SOCIOS POR AUSENTE
+		WITH SociosConAusentes AS (
 		SELECT 
 			R.NumeroDeSocio,
 			CA.IdActividad
@@ -153,10 +166,10 @@ BEGIN
 		INNER JOIN 
 			app.ClaseActividad CA ON R.IdClaseActividad = CA.IdClaseActividad
 		WHERE 
-			R.Asistencia = 'P'
+			R.Asistencia IN ('A', 'J') -- Ausente o Justificada
 		GROUP BY 
 			R.NumeroDeSocio, CA.IdActividad
-	)--Devuelve las reservas que terminaron con los socios presentes
+	)--Devuelve los socios que tengan ausentes en al menos una clase de alguna actividad
 	SELECT 
 		S.Nombre,
 		S.Apellido,
@@ -164,19 +177,14 @@ BEGIN
 		CS.Nombre AS Categoria,
 		AD.Nombre AS Actividad
 	FROM 
-		SociosConReservas SCR
-	LEFT JOIN 
-		SociosConPresente SP ON SCR.NumeroDeSocio = SP.NumeroDeSocio AND SCR.IdActividad = SP.IdActividad
+		SociosConAusentes SA
 	INNER JOIN 
-		app.Socio S ON S.NumeroDeSocio = SCR.NumeroDeSocio
+		app.Socio S ON S.NumeroDeSocio = SA.NumeroDeSocio
 	INNER JOIN 
 		app.CategoriaSocio CS ON S.IdCategoriaSocio = CS.IdCategoriaSocio
 	INNER JOIN 
-		app.ActividadDeportiva AD ON SCR.IdActividad = AD.IdActividad
-	WHERE 
-		SP.NumeroDeSocio IS NULL --Si el socio es NULL es porque no encontró coincidencias, por ende, significa que no asistió a ninguna de esas clases
+		app.ActividadDeportiva AD ON SA.IdActividad = AD.IdActividad
 	ORDER BY 
 		AD.Nombre, S.Apellido, S.Nombre;
 
 END
-
