@@ -480,3 +480,29 @@ BEGIN
 		WHERE F.Estado = 'VEN'
 		AND NOT EXISTS(SELECT 1 FROM app.CuotaMorosa WHERE IdCuota = F.IdCuota)
 END;
+
+GO
+CREATE OR ALTER PROCEDURE ops.EstablecerParentesco
+	@NroSocio CHAR(7),
+	@NroSocioResp CHAR(7)
+AS
+BEGIN
+	SET NOCOUNT ON;
+	IF @NroSocioResp NOT IN(SELECT NumeroDeSocioResponsable FROM app.GrupoFamiliar)
+	BEGIN --El socio responsable aun no tiene grupo a cargo -> debe crearse
+		INSERT INTO app.GrupoFamiliar(FechaCreacion,Estado,NombreFamilia,NumeroDeSocioResponsable)
+		SELECT
+			GETDATE(),
+			'Activo', 
+			CONCAT('Grupo de ', Apellido COLLATE Latin1_General_CI_AI),
+			@NroSocioResp
+		FROM app.Socio
+		WHERE NumeroDeSocio = @NroSocioResp
+	END;
+
+	--Exista o no el grupo previamente, se debe establecer el parentesco, por ende:
+	UPDATE app.Socio
+	SET IdGrupoFamiliar = (SELECT TOP 1 IdGrupoFamiliar FROM app.GrupoFamiliar WHERE NumeroDeSocioResponsable = @NroSocioResp ORDER BY FechaCreacion DESC)
+	WHERE NumeroDeSocio = @NroSocio
+	
+END;

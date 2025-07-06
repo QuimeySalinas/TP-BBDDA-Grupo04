@@ -242,11 +242,21 @@ SELECT * FROM app.Reintegro;
 
 SELECT * FROM app.Descuento
 
+--POST PRIMER DEFENSA
+
 --Prueba de inscripcion de un socio nuevo
 SELECT * FROM app.Inscripcion
-INSERT INTO app.Socio(NumeroDeSocio,Documento,Nombre,Apellido,FechaNacimiento,Estado)
-VALUES ('SN-9002', '40000001', 'Quimey', 'Salinas', '20030505', 'Activo')
-SELECT * FROM app.Cuota WHERE NumeroDeSocio = 'SN-9002'
+--Bloque de insert
+	DECLARE @FechaNacimiento DATE = '20030505'
+	INSERT INTO app.Socio(NumeroDeSocio,Documento,Nombre,Apellido,FechaNacimiento,Estado,IdCategoriaSocio)
+	VALUES ('SN-9004', '40000001', 'Quimey', 'Salinas', @FechaNacimiento, 'Activo',
+			CASE  
+				WHEN DATEDIFF(YEAR, @FechaNacimiento, GETDATE()) < 18 THEN COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Menor'), NULL)  
+				WHEN DATEDIFF(YEAR, @FechaNacimiento, GETDATE()) BETWEEN 18 AND 25 THEN COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Cadete'), NULL)  
+				ELSE COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Mayor'), NULL)  
+			END )
+
+SELECT * FROM app.Cuota WHERE NumeroDeSocio = 'SN-9004'
 
 
 --Prueba de pago de una cuota:
