@@ -182,8 +182,9 @@ BEGIN
 	FROM inserted i
 	INNER JOIN app.CategoriaSocio CS ON i.IdCategoriaSocio = CS.IdCategoriaSocio
 	INNER JOIN app.CostoMembresia CM ON CS.iDCategoriaSocio = CM.iDCategoriaSocio 
-	AND  CM.fecha = (SELECT MAX(fecha) FROM app.CostoMembresia WHERE IdCategoriaSocio = CS.IdCategoriaSocio GROUP BY IdCategoriaSocio) --Que agarre la fecha mas alta
-	LEFT JOIN app.Descuento D ON i.NumeroDeSocio = D.NumeroDeSocio AND D.FechaVigencia <= GETDATE()
+	AND  CM.fecha = (SELECT MAX(fecha) FROM app.CostoMembresia WHERE IdCategoriaSocio = CS.IdCategoriaSocio AND fecha <= GETDATE() GROUP BY IdCategoriaSocio) --Que agarre la fecha mas alta
+	LEFT JOIN app.Descuento D ON i.NumeroDeSocio = D.NumeroDeSocio 
+	AND D.FechaVigencia = (SELECT MAX(FechaVigencia) FROM app.Descuento WHERE NumeroDeSocio = D.NumeroDeSocio AND FechaVigencia <= GETDATE() GROUP BY NumeroDeSocio)--Que agarre el último descuento disponible
 END;
 GO
 --Trigger que modifica el campo Saldo del cliente una vez que se genera un reintegro
