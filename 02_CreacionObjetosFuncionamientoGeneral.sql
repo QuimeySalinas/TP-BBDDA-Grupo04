@@ -482,27 +482,41 @@ BEGIN
 END;
 
 GO
-CREATE OR ALTER PROCEDURE ops.EstablecerParentesco
+CREATE OR ALTER PROCEDURE EstablecerParentesco
 	@NroSocio CHAR(7),
 	@NroSocioResp CHAR(7)
 AS
 BEGIN
 	SET NOCOUNT ON;
-	IF @NroSocioResp NOT IN(SELECT NumeroDeSocioResponsable FROM app.GrupoFamiliar)
-	BEGIN --El socio responsable aun no tiene grupo a cargo -> debe crearse
-		INSERT INTO app.GrupoFamiliar(FechaCreacion,Estado,NombreFamilia,NumeroDeSocioResponsable)
-		SELECT
-			GETDATE(),
-			'Activo', 
-			CONCAT('Grupo de ', Apellido COLLATE Latin1_General_CI_AI),
-			@NroSocioResp
-		FROM app.Socio
-		WHERE NumeroDeSocio = @NroSocioResp
-	END;
+	IF (SELECT COUNT(*) FROM app.Socio WHERE NumeroDeSocio = @NroSocio) = 1 AND (SELECT COUNT(*) FROM app.Socio WHERE NumeroDeSocio = @NroSocioResp) = 1
+	BEGIN
+		IF (SELECT DATEDIFF(YEAR, FechaNacimiento, GETDATE()) FROM app.Socio WHERE NumeroDeSocio = @NroSocioResp) >= 18 
+		BEGIN
+			IF @NroSocioResp NOT IN(SELECT NumeroDeSocioResponsable FROM app.GrupoFamiliar)
+			BEGIN --El socio responsable aun no tiene grupo a cargo -> debe crearse
+				INSERT INTO app.GrupoFamiliar(FechaCreacion,Estado,NombreFamilia,NumeroDeSocioResponsable)
+				SELECT
+					GETDATE(),
+					'Activo', 
+					CONCAT('Grupo de ', Apellido COLLATE Latin1_General_CI_AI),
+					@NroSocioResp
+				FROM app.Socio
+				WHERE NumeroDeSocio = @NroSocioResp
+			END;
 
-	--Exista o no el grupo previamente, se debe establecer el parentesco, por ende:
-	UPDATE app.Socio
-	SET IdGrupoFamiliar = (SELECT TOP 1 IdGrupoFamiliar FROM app.GrupoFamiliar WHERE NumeroDeSocioResponsable = @NroSocioResp ORDER BY FechaCreacion DESC)
-	WHERE NumeroDeSocio = @NroSocio
+			--Exista o no el grupo previamente, se debe establecer el parentesco, por ende:
+			UPDATE app.Socio
+			SET IdGrupoFamiliar = (SELECT TOP 1 IdGrupoFamiliar FROM app.GrupoFamiliar WHERE NumeroDeSocioResponsable = @NroSocioResp ORDER BY FechaCreacion DESC)
+			WHERE NumeroDeSocio = @NroSocio
+		END
+		ELSE
+		BEGIN
+			PRINT('Error: El socio responsable debe ser mayor de 18 años')
+		END
+	END
+	ELSE
+	BEGIN
+		PRINT('Error: Revise que ambos socios existan.')
+	END
 	
 END;

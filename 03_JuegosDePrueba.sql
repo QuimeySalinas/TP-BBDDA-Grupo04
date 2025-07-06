@@ -268,3 +268,42 @@ SELECT * FROM app.Cuota
 
 SELECT * FROM app.Factura WHERE IdCuota = 1584
 
+--Prueba Agregar a grupo familiar
+
+--Primero, agregamos un mayor
+	DECLARE @FechaNacimientoMayor DATE = '19900505'
+	INSERT INTO app.Socio(NumeroDeSocio,Documento,Nombre,Apellido,FechaNacimiento,Estado,IdCategoriaSocio)
+	VALUES ('SN-9500', '40000001', 'Quimey', 'Salinas', @FechaNacimientoMayor, 'Activo',
+			CASE  
+				WHEN DATEDIFF(YEAR, @FechaNacimientoMayor, GETDATE()) < 18 THEN COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Menor'), NULL)  
+				WHEN DATEDIFF(YEAR, @FechaNacimientoMayor, GETDATE()) BETWEEN 18 AND 25 THEN COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Cadete'), NULL)  
+				ELSE COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Mayor'), NULL)  
+			END )
+--Lo mismo con un Menor que deba estar a cargo
+	DECLARE @FechaNacimientoMenor DATE = '20150505'
+	INSERT INTO app.Socio(NumeroDeSocio,Documento,Nombre,Apellido,FechaNacimiento,Estado,IdCategoriaSocio)
+	VALUES ('SN-9501', '40000001', 'Quimey', 'Salinas', @FechaNacimientoMenor, 'Activo',
+			CASE  
+				WHEN DATEDIFF(YEAR, @FechaNacimientoMenor, GETDATE()) < 18 THEN COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Menor'), NULL)  
+				WHEN DATEDIFF(YEAR, @FechaNacimientoMenor, GETDATE()) BETWEEN 18 AND 25 THEN COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Cadete'), NULL)  
+				ELSE COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Mayor'), NULL)  
+			END )
+--Establecemos el parentesco con el SP, indicando primero el menor, y luego el mayor
+EXEC EstablecerParentesco 'SN-9501', 'SN-9500'
+--Corroboramos lo sucedido
+SELECT * FROM app.GrupoFamiliar WHERE NumeroDeSocioResponsable = 'SN-9500'
+SELECT IdGrupoFamiliar FROM app.Socio WHERE NumeroDeSocio = 'SN-9501'
+
+--Probamos agregar otro menor al grupo
+	DECLARE @FechaNacimientoMenor2 DATE = '20150505'
+	INSERT INTO app.Socio(NumeroDeSocio,Documento,Nombre,Apellido,FechaNacimiento,Estado,IdCategoriaSocio)
+	VALUES ('SN-9502', '40000001', 'Quimey', 'Salinas', @FechaNacimientoMenor2, 'Activo',
+			CASE  
+				WHEN DATEDIFF(YEAR, @FechaNacimientoMenor2, GETDATE()) < 18 THEN COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Menor'), NULL)  
+				WHEN DATEDIFF(YEAR, @FechaNacimientoMenor2, GETDATE()) BETWEEN 18 AND 25 THEN COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Cadete'), NULL)  
+				ELSE COALESCE((SELECT IdCategoriaSocio FROM app.CategoriaSocio WHERE Nombre = 'Mayor'), NULL)  
+			END )
+EXEC EstablecerParentesco 'SN-9502', 'SN-9500'
+
+SELECT IdGrupoFamiliar FROM app.Socio WHERE NumeroDeSocio = 'SN-9502'
+
