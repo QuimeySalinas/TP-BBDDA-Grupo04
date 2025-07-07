@@ -197,6 +197,12 @@ DELETE FROM app.Cuota
 WHERE FechaEmision > DATEADD(DAY, -30, GETDATE())
   AND NumeroDeSocio IN ('SN-4118','SN-4116');
 
+--Generamos un descuento para el socio SN-4116 para verificar:
+INSERT INTO app.Descuento(Tipo, Porcentaje, FechaVigencia, NumeroDeSocio)
+VALUES ('Descuento', 20, '2025-06-15', 'SN-4116')
+
+SELECT * FROM app.Descuento;
+
 --Ejecutamos el SP
 EXEC GenerarCuota
 
