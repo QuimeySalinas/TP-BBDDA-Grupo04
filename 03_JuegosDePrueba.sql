@@ -329,3 +329,16 @@ SELECT * FROM app.Descuento
 SELECT * FROM app.Descuento WHERE NumeroDeSocio = 'SN-9504'
 --No tiene descuento ya que se unio post generacion de descuentos mensuales, por ende
 EXEC GenerarDescuentoSocio 'SN-9504', 15
+
+--Prueba de trigger de primera cuota:
+--Al insertar registros nuevos en la tabla socio, ademas de generarse la inscripcion, se genera la priemra cuota del socio.
+INSERT INTO app.Socio (NumeroDeSocio, Nombre, Apellido, Documento, EmailPersonal, FechaNacimiento, Estado, idCategoriaSocio) 
+VALUES ('SN-9911','CARLOS ','TEVEZ','26564763','CTEVEZ@BOCA.COM','1998-07-25', 'Activo', 3);
+INSERT INTO app.Socio (NumeroDeSocio, Nombre, Apellido, Documento, EmailPersonal, FechaNacimiento, Estado, idCategoriaSocio) 
+VALUES ('SN-9912','MIGUEL ','BBORJA','43656367','MIGUELITO@HOTMAIL.COM','1989-02-23', 'Activo', 2);
+INSERT INTO app.Socio (NumeroDeSocio, Nombre, Apellido, Documento, EmailPersonal, FechaNacimiento, Estado, idCategoriaSocio) 
+VALUES ('SN-9913','ZLATAN','IBRAHIMOVIC','34565234','THEBEST@HOTMAIL.COM','1998-03-25', 'Activo', 1);
+
+SELECT * 
+FROM app.Cuota 
+WHERE NumeroDeSocio IN ('SN-9911','SN-9912', 'SN-9913');
